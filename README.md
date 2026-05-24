@@ -1,7 +1,5 @@
 # codex-ubuntu
 
-![Hero](assets/hero.svg)
-
 [![Status](https://img.shields.io/badge/status-preview-orange)](docs/roadmap.md)
 [![Ubuntu](https://img.shields.io/badge/ubuntu-22.04%20%7C%2024.04-E95420)](docs/architecture.md)
 [![Packaging](https://img.shields.io/badge/package-.deb%20first-0E7490)](packaging/deb/README.md)
@@ -38,8 +36,6 @@ The current repository is not just a design memo. It ships a working launcher fo
 - local install flow
 - `.deb` build path
 - smoke tests and CI
-
-![Preview](assets/window-preview.svg)
 
 ## What it is not claiming
 
