@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Codex Ubuntu (Unofficial)
+Comment=Launch Codex on Ubuntu through the unofficial launcher
+Exec=__EXEC__ %U
+Terminal=false
+Categories=Development;IDE;
+StartupNotify=true
+StartupWMClass=codex-ubuntu
+Icon=__ICON__
+Keywords=Ubuntu;Development;AI;Assistant;

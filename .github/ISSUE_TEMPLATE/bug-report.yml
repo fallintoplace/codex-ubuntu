@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a launcher, packaging, or desktop integration bug.
+title: "[bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please include enough detail to reproduce the issue on Ubuntu without guessing.
+  - type: input
+    id: ubuntu-version
+    attributes:
+      label: Ubuntu version
+      placeholder: "24.04 LTS"
+    validations:
+      required: true
+  - type: input
+    id: install-path
+    attributes:
+      label: Install path
+      placeholder: "local install, .deb build, or custom setup"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      placeholder: Describe the actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      placeholder: Describe the expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: Please redact sensitive values before posting.
+      placeholder: Paste short excerpts only.

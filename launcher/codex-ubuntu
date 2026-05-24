@@ -1,0 +1,855 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_ID="codex-ubuntu"
+APP_NAME="Codex Ubuntu (Unofficial)"
+APP_VERSION="${CODEX_UBUNTU_VERSION:-0.1.0}"
+PROVIDER="${CODEX_UBUNTU_PROVIDER:-browser-shell}"
+WEB_BIND="${CODEX_UBUNTU_BIND:-127.0.0.1}"
+DEFAULT_WEB_PORT="${CODEX_UBUNTU_PORT:-8080}"
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/${APP_ID}"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/${APP_ID}"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/${APP_ID}"
+PROFILE_DIR="${CONFIG_DIR}/browser-profile"
+TOKEN_FILE="${STATE_DIR}/token"
+RUNTIME_FILE="${TOKEN_FILE}.runtime"
+RUNTIME_FINGERPRINT_FILE="${STATE_DIR}/runtime.fingerprint.json"
+PID_FILE="${STATE_DIR}/web.pid"
+PORT_FILE="${STATE_DIR}/web.port"
+LOCK_FILE="${STATE_DIR}/launcher.lock"
+LAUNCHER_LOG="${CACHE_DIR}/launcher.log"
+WEB_LOG="${CACHE_DIR}/web.log"
+LOCK_HELD=0
+ENSURE_SERVER_PORT=""
+ENSURE_SERVER_ACTION=""
+
+usage() {
+  cat <<'EOF'
+Usage:
+  codex-ubuntu              Start Codex Ubuntu in a dedicated app window
+  codex-ubuntu --browser    Open Codex Ubuntu in a normal browser tab
+  codex-ubuntu --status     Show current launcher/runtime status
+  codex-ubuntu --doctor     Show runtime and browser discovery details
+  codex-ubuntu --stop       Stop the verified local web runtime
+  codex-ubuntu --help       Show this help
+  codex-ubuntu --version    Show launcher version
+EOF
+}
+
+log() {
+  mkdir -p "$CACHE_DIR"
+  printf '[%s] %s\n' "$(date -Is)" "$*" >>"$LAUNCHER_LOG"
+}
+
+notify_failure() {
+  local message="$1"
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "$APP_NAME" "$message" || true
+  fi
+}
+
+ensure_dirs() {
+  mkdir -p "$CONFIG_DIR" "$CACHE_DIR" "$STATE_DIR" "$PROFILE_DIR"
+}
+
+with_lock() {
+  ensure_dirs
+  if command -v flock >/dev/null 2>&1; then
+    if [ "$LOCK_HELD" = "1" ]; then
+      return 0
+    fi
+    exec 9>"$LOCK_FILE"
+    flock 9
+    LOCK_HELD=1
+  fi
+}
+
+release_lock() {
+  if [ "$LOCK_HELD" != "1" ]; then
+    return 0
+  fi
+
+  if command -v flock >/dev/null 2>&1; then
+    flock -u 9 >/dev/null 2>&1 || true
+    exec 9>&- || true
+  fi
+
+  LOCK_HELD=0
+}
+
+clear_launcher_state() {
+  rm -f \
+    "$PID_FILE" \
+    "$PORT_FILE" \
+    "$RUNTIME_FILE" \
+    "$RUNTIME_FINGERPRINT_FILE" \
+    "$TOKEN_FILE"
+}
+
+is_unsigned_int() {
+  case "${1:-}" in
+    ""|*[!0-9]*)
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
+executable_candidate() {
+  local candidate="$1"
+  [ -n "$candidate" ] || return 1
+  [ -x "$candidate" ] || return 1
+  printf '%s\n' "$candidate"
+}
+
+search_nvm_tool() {
+  local name="$1"
+  local latest=""
+
+  if [ -d "${HOME}/.nvm/versions/node" ]; then
+    latest="$(find "${HOME}/.nvm/versions/node" -path "*/bin/${name}" -type f 2>/dev/null | sort -V | tail -n 1 || true)"
+    if executable_candidate "$latest" >/dev/null 2>&1; then
+      printf '%s\n' "$latest"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+resolve_tool() {
+  local env_name="$1"
+  local fallback_name="$2"
+  local env_value="${!env_name:-}"
+  local candidate=""
+  local npm_prefix=""
+
+  if executable_candidate "$env_value" >/dev/null 2>&1; then
+    executable_candidate "$env_value"
+    return 0
+  fi
+
+  if command -v "$fallback_name" >/dev/null 2>&1; then
+    command -v "$fallback_name"
+    return 0
+  fi
+
+  for candidate in \
+    "${HOME}/.local/bin/${fallback_name}" \
+    "${HOME}/bin/${fallback_name}" \
+    "/usr/local/bin/${fallback_name}" \
+    "/usr/bin/${fallback_name}" \
+    "/snap/bin/${fallback_name}"
+  do
+    if executable_candidate "$candidate" >/dev/null 2>&1; then
+      executable_candidate "$candidate"
+      return 0
+    fi
+  done
+
+  if command -v npm >/dev/null 2>&1; then
+    npm_prefix="$(npm prefix -g 2>/dev/null || true)"
+    if executable_candidate "${npm_prefix}/bin/${fallback_name}" >/dev/null 2>&1; then
+      executable_candidate "${npm_prefix}/bin/${fallback_name}"
+      return 0
+    fi
+  fi
+
+  search_nvm_tool "$fallback_name"
+}
+
+resolve_runtime_command() {
+  case "$PROVIDER" in
+    browser-shell)
+      resolve_tool "CODEX_UBUNTU_APP_LINUX_CMD" "codex-app-linux"
+      ;;
+    *)
+      printf 'Unsupported provider: %s\n' "$PROVIDER" >&2
+      return 1
+      ;;
+  esac
+}
+
+resolve_browser_command() {
+  local env_value="${CODEX_UBUNTU_BROWSER:-}"
+  local candidate=""
+
+  if executable_candidate "$env_value" >/dev/null 2>&1; then
+    executable_candidate "$env_value"
+    return 0
+  fi
+
+  for candidate in \
+    google-chrome-stable \
+    google-chrome \
+    chromium \
+    chromium-browser \
+    microsoft-edge \
+    microsoft-edge-stable \
+    vivaldi-stable \
+    vivaldi
+  do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      command -v "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+runtime_field() {
+  local field="$1"
+
+  [ -f "$RUNTIME_FILE" ] || return 1
+  python3 - "$RUNTIME_FILE" "$field" <<'PY'
+import json
+import sys
+
+runtime_path = sys.argv[1]
+field_name = sys.argv[2]
+
+try:
+    with open(runtime_path, "r", encoding="utf-8") as handle:
+        value = json.load(handle).get(field_name)
+except Exception:
+    raise SystemExit(1)
+
+if value is None:
+    raise SystemExit(1)
+
+print(value)
+PY
+}
+
+runtime_pid() {
+  runtime_field pid
+}
+
+runtime_port() {
+  runtime_field port
+}
+
+saved_port() {
+  [ -f "$PORT_FILE" ] || return 1
+  tr -d '[:space:]' <"$PORT_FILE"
+}
+
+pid_is_live() {
+  local pid="$1"
+  is_unsigned_int "$pid" && kill -0 "$pid" >/dev/null 2>&1
+}
+
+capture_runtime_fingerprint() {
+  python3 - "$RUNTIME_FILE" "$RUNTIME_FINGERPRINT_FILE" "$TOKEN_FILE" "$WEB_BIND" "$PROVIDER" <<'PY'
+import hashlib
+import json
+import os
+import pathlib
+import sys
+import time
+
+runtime_path = pathlib.Path(sys.argv[1])
+fingerprint_path = pathlib.Path(sys.argv[2])
+expected_token_file = sys.argv[3]
+expected_bind = sys.argv[4]
+provider = sys.argv[5]
+
+try:
+    runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
+except Exception:
+    raise SystemExit(1)
+
+pid = str(runtime.get("pid", ""))
+port = str(runtime.get("port", ""))
+bind = str(runtime.get("bind", ""))
+token_file = runtime.get("tokenFile")
+
+if not pid.isdigit() or not port.isdigit():
+    raise SystemExit(1)
+if bind != expected_bind:
+    raise SystemExit(1)
+if token_file != expected_token_file:
+    raise SystemExit(1)
+
+cmdline_path = pathlib.Path(f"/proc/{pid}/cmdline")
+exe_path = pathlib.Path(f"/proc/{pid}/exe")
+
+try:
+    raw = cmdline_path.read_bytes()
+except Exception:
+    raise SystemExit(1)
+
+parts = [part.decode("utf-8", "ignore") for part in raw.split(b"\0") if part]
+if not parts:
+    raise SystemExit(1)
+
+required_pairs = {
+    "--token-file": expected_token_file,
+    "--bind": expected_bind,
+    "--port": port,
+}
+
+for flag, expected in required_pairs.items():
+    try:
+        index = parts.index(flag)
+    except ValueError:
+        raise SystemExit(1)
+    if index + 1 >= len(parts) or parts[index + 1] != expected:
+        raise SystemExit(1)
+
+try:
+    proc_exe = os.readlink(exe_path)
+except OSError:
+    proc_exe = ""
+
+fingerprint = {
+    "provider": provider,
+    "pidAtCapture": int(pid),
+    "bind": expected_bind,
+    "port": int(port),
+    "tokenFile": expected_token_file,
+    "procExe": proc_exe,
+    "cmdlineSha256": hashlib.sha256(raw).hexdigest(),
+    "capturedAt": int(time.time() * 1000),
+}
+
+fingerprint_path.write_text(json.dumps(fingerprint) + "\n", encoding="utf-8")
+PY
+}
+
+process_matches_runtime_metadata() {
+  local pid="$1"
+  local port="$2"
+
+  pid_is_live "$pid" || return 1
+  is_unsigned_int "$port" || return 1
+
+  python3 - "$pid" "$RUNTIME_FILE" "$TOKEN_FILE" "$WEB_BIND" "$port" <<'PY'
+import json
+import pathlib
+import sys
+
+pid, runtime_path, token_file, bind, port = sys.argv[1:]
+cmdline_path = pathlib.Path(f"/proc/{pid}/cmdline")
+
+try:
+    runtime = json.loads(pathlib.Path(runtime_path).read_text(encoding="utf-8"))
+except Exception:
+    raise SystemExit(1)
+
+if str(runtime.get("pid")) != pid:
+    raise SystemExit(1)
+if str(runtime.get("bind")) != bind:
+    raise SystemExit(1)
+if str(runtime.get("port")) != port:
+    raise SystemExit(1)
+if runtime.get("tokenFile") != token_file:
+    raise SystemExit(1)
+
+try:
+    raw = cmdline_path.read_bytes()
+except Exception:
+    raise SystemExit(1)
+
+parts = [part.decode("utf-8", "ignore") for part in raw.split(b"\0") if part]
+if not parts:
+    raise SystemExit(1)
+
+required_pairs = {
+    "--token-file": token_file,
+    "--bind": bind,
+    "--port": port,
+}
+
+for flag, expected in required_pairs.items():
+    try:
+        index = parts.index(flag)
+    except ValueError:
+        raise SystemExit(1)
+    if index + 1 >= len(parts) or parts[index + 1] != expected:
+        raise SystemExit(1)
+
+raise SystemExit(0)
+PY
+}
+
+process_matches_runtime_server() {
+  local pid="$1"
+  local port="$2"
+
+  process_matches_runtime_metadata "$pid" "$port" || return 1
+
+  python3 - "$pid" "$RUNTIME_FINGERPRINT_FILE" "$PROVIDER" <<'PY'
+import hashlib
+import json
+import os
+import pathlib
+import sys
+
+pid, fingerprint_path, provider = sys.argv[1:]
+cmdline_path = pathlib.Path(f"/proc/{pid}/cmdline")
+exe_path = pathlib.Path(f"/proc/{pid}/exe")
+
+try:
+    fingerprint = json.loads(pathlib.Path(fingerprint_path).read_text(encoding="utf-8"))
+except Exception:
+    raise SystemExit(1)
+
+if fingerprint.get("provider") != provider:
+    raise SystemExit(1)
+
+try:
+    raw = cmdline_path.read_bytes()
+except Exception:
+    raise SystemExit(1)
+
+if hashlib.sha256(raw).hexdigest() != fingerprint.get("cmdlineSha256"):
+    raise SystemExit(1)
+
+try:
+    proc_exe = os.readlink(exe_path)
+except OSError:
+    proc_exe = ""
+
+fingerprint_exe = fingerprint.get("procExe", "")
+if fingerprint_exe and proc_exe != fingerprint_exe:
+    raise SystemExit(1)
+
+raise SystemExit(0)
+PY
+}
+
+kill_runtime_pid() {
+  local pid="$1"
+
+  [ -n "$pid" ] || return 1
+  pid_is_live "$pid" || return 0
+
+  kill "$pid" >/dev/null 2>&1 || true
+
+  for _ in $(seq 1 20); do
+    if ! pid_is_live "$pid"; then
+      return 0
+    fi
+    sleep 0.2
+  done
+
+  if pid_is_live "$pid"; then
+    kill -9 "$pid" >/dev/null 2>&1 || true
+  fi
+}
+
+verified_runtime_pid() {
+  local pid=""
+  local port=""
+
+  pid="$(runtime_pid 2>/dev/null || true)"
+  port="$(runtime_port 2>/dev/null || true)"
+
+  if process_matches_runtime_server "$pid" "$port"; then
+    printf '%s\n' "$pid"
+    return 0
+  fi
+
+  return 1
+}
+
+verified_runtime_port() {
+  local pid=""
+  local port=""
+
+  pid="$(verified_runtime_pid 2>/dev/null || true)"
+  port="$(runtime_port 2>/dev/null || true)"
+
+  if [ -n "$pid" ] && is_unsigned_int "$port"; then
+    printf '%s\n' "$port"
+    return 0
+  fi
+
+  return 1
+}
+
+sync_state_from_runtime() {
+  local pid=""
+  local port=""
+
+  pid="$(verified_runtime_pid 2>/dev/null || true)"
+  port="$(verified_runtime_port 2>/dev/null || true)"
+
+  if [ -z "$pid" ] || [ -z "$port" ]; then
+    return 1
+  fi
+
+  printf '%s\n' "$pid" >"$PID_FILE"
+  printf '%s\n' "$port" >"$PORT_FILE"
+}
+
+port_is_listening() {
+  local port="$1"
+  python3 - "$WEB_BIND" "$port" <<'PY'
+import socket
+import sys
+
+host = sys.argv[1]
+port = int(sys.argv[2])
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.settimeout(0.5)
+    raise SystemExit(0 if sock.connect_ex((host, port)) == 0 else 1)
+PY
+}
+
+server_healthy() {
+  local port="$1"
+  curl -fsS "http://${WEB_BIND}:${port}/__webstrapper/healthz" >/dev/null 2>&1
+}
+
+pick_port() {
+  python3 - "$WEB_BIND" "$DEFAULT_WEB_PORT" <<'PY'
+import socket
+import sys
+
+host = sys.argv[1]
+preferred = int(sys.argv[2])
+
+for port in (preferred, *range(preferred + 1, preferred + 25)):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((host, port))
+        except OSError:
+            continue
+        print(port)
+        raise SystemExit(0)
+
+raise SystemExit(1)
+PY
+}
+
+redact_stream() {
+  python3 - <<'PY'
+import re
+import sys
+
+for line in sys.stdin:
+    line = re.sub(r'token=[^"&\s]+', 'token=<redacted>', line)
+    if line.startswith("Local login command: "):
+        line = "Local login command: <redacted>\n"
+    sys.stdout.write(line)
+PY
+}
+
+open_url() {
+  local url="$1"
+
+  if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$url" >/dev/null 2>&1 && return 0
+  fi
+  if command -v gio >/dev/null 2>&1; then
+    gio open "$url" >/dev/null 2>&1 && return 0
+  fi
+  if command -v sensible-browser >/dev/null 2>&1; then
+    sensible-browser "$url" >/dev/null 2>&1 && return 0
+  fi
+
+  return 1
+}
+
+cleanup_stale_state() {
+  local pid=""
+  local port=""
+
+  pid="$(verified_runtime_pid 2>/dev/null || true)"
+  port="$(verified_runtime_port 2>/dev/null || runtime_port 2>/dev/null || saved_port 2>/dev/null || true)"
+
+  if [ -n "$pid" ] && [ -n "$port" ]; then
+    sync_state_from_runtime || true
+    return 0
+  fi
+
+  if [ -n "$port" ] && is_unsigned_int "$port" && server_healthy "$port"; then
+    log "Discarding unverified healthy web runtime at http://${WEB_BIND}:${port}/"
+  fi
+
+  clear_launcher_state
+}
+
+stop_server() {
+  local pid=""
+  local port=""
+
+  with_lock
+  pid="$(verified_runtime_pid 2>/dev/null || true)"
+  port="$(verified_runtime_port 2>/dev/null || runtime_port 2>/dev/null || saved_port 2>/dev/null || true)"
+
+  if [ -n "$pid" ] && pid_is_live "$pid"; then
+    kill_runtime_pid "$pid"
+  elif [ -n "$port" ] && is_unsigned_int "$port" && server_healthy "$port"; then
+    log "Refusing to stop healthy web runtime at http://${WEB_BIND}:${port}/ because the owning process could not be verified"
+    printf 'Refusing to stop healthy web runtime at http://%s:%s/ because the owning process could not be verified.\n' "$WEB_BIND" "$port" >&2
+    clear_launcher_state
+    release_lock
+    return 1
+  fi
+
+  clear_launcher_state
+  release_lock
+}
+
+ensure_server() {
+  local runtime_cmd=""
+  local codex_cli=""
+  local pid=""
+  local port=""
+  local started_pid=""
+
+  ENSURE_SERVER_PORT=""
+  ENSURE_SERVER_ACTION=""
+  with_lock
+  ensure_dirs
+  cleanup_stale_state
+
+  runtime_cmd="$(resolve_runtime_command)"
+  codex_cli="$(resolve_tool "CODEX_CLI_PATH" "codex" 2>/dev/null || true)"
+  if [ -n "$codex_cli" ]; then
+    export CODEX_CLI_PATH="$codex_cli"
+  fi
+
+  pid="$(verified_runtime_pid 2>/dev/null || true)"
+  port="$(verified_runtime_port 2>/dev/null || runtime_port 2>/dev/null || saved_port 2>/dev/null || true)"
+
+  if [ -n "$port" ] && is_unsigned_int "$port" && server_healthy "$port"; then
+    sync_state_from_runtime || true
+    log "Reusing healthy web runtime at http://${WEB_BIND}:${port}/"
+    ENSURE_SERVER_PORT="$port"
+    ENSURE_SERVER_ACTION="reused"
+    release_lock
+    return 0
+  fi
+
+  if [ -n "$pid" ] && pid_is_live "$pid"; then
+    stop_server
+  fi
+
+  if [ -n "$port" ] && is_unsigned_int "$port" && port_is_listening "$port" && ! server_healthy "$port"; then
+    port=""
+  fi
+
+  if [ -z "$port" ]; then
+    port="$(pick_port)"
+  fi
+
+  log "Starting ${PROVIDER} runtime on ${WEB_BIND}:${port}"
+  nohup "$runtime_cmd" web \
+    --bind "$WEB_BIND" \
+    --port "$port" \
+    --token-file "$TOKEN_FILE" \
+    9>&- > >(
+      exec 9>&-
+      redact_stream >>"$WEB_LOG"
+    ) 2>&1 &
+  started_pid="$!"
+
+  rm -f "$PID_FILE"
+  printf '%s\n' "$port" >"$PORT_FILE"
+
+  for _ in $(seq 1 60); do
+    if server_healthy "$port"; then
+      if ! capture_runtime_fingerprint; then
+        local unverified_pid=""
+        unverified_pid="$(runtime_pid 2>/dev/null || true)"
+        log "Web runtime became healthy but could not be fingerprinted"
+        if process_matches_runtime_metadata "$unverified_pid" "$port"; then
+          kill_runtime_pid "$unverified_pid"
+        fi
+        clear_launcher_state
+        printf 'The local runtime started but could not be verified for safe reuse.\n' >&2
+        release_lock
+        return 1
+      fi
+      sync_state_from_runtime || true
+      log "Web runtime became healthy"
+      ENSURE_SERVER_PORT="$port"
+      ENSURE_SERVER_ACTION="started"
+      release_lock
+      return 0
+    fi
+
+    if ! pid_is_live "$started_pid"; then
+      break
+    fi
+
+    sleep 0.25
+  done
+
+  log "Web runtime failed to become healthy"
+  notify_failure "The local runtime did not start. Check ${WEB_LOG}."
+  printf 'The local runtime did not start. Check %s\n' "$WEB_LOG" >&2
+  stop_server || true
+  release_lock
+  return 1
+}
+
+auth_url() {
+  local port="$1"
+
+  if [ ! -f "$TOKEN_FILE" ]; then
+    printf 'http://%s:%s/\n' "$WEB_BIND" "$port"
+    return 0
+  fi
+
+  python3 - "$TOKEN_FILE" "$WEB_BIND" "$port" <<'PY'
+import pathlib
+import sys
+import urllib.parse
+
+token_path = pathlib.Path(sys.argv[1])
+web_bind = sys.argv[2]
+web_port = sys.argv[3]
+root_url = f"http://{web_bind}:{web_port}/"
+token = token_path.read_text(encoding="utf-8").strip()
+
+if not token:
+    print(root_url)
+else:
+    print(f"{root_url}?token={urllib.parse.quote(token)}")
+PY
+}
+
+focus_existing_window() {
+  local window_id=""
+
+  if ! command -v xdotool >/dev/null 2>&1; then
+    return 1
+  fi
+
+  window_id="$(xdotool search --onlyvisible --class "$APP_ID" 2>/dev/null | tail -n 1 || true)"
+  if [ -z "$window_id" ]; then
+    return 1
+  fi
+
+  xdotool windowactivate "$window_id" >/dev/null 2>&1 || true
+  return 0
+}
+
+launch_app_window() {
+  local browser_cmd=""
+  local port=""
+  local url=""
+
+  ensure_server
+  port="$ENSURE_SERVER_PORT"
+  url="$(auth_url "$port")"
+
+  if [ "$ENSURE_SERVER_ACTION" = "reused" ] && focus_existing_window; then
+    log "Focused existing app window"
+    return 0
+  fi
+
+  browser_cmd="$(resolve_browser_command || true)"
+  if [ -z "$browser_cmd" ]; then
+    log "No supported app browser found; falling back to URL open"
+    if ! open_url "$url"; then
+      notify_failure "Could not open your browser. Open ${url} manually."
+      printf 'Open this URL manually: %s\n' "$url" >&2
+      return 1
+    fi
+    return 0
+  fi
+
+  log "Launching app window via ${browser_cmd}"
+  exec "$browser_cmd" \
+    --no-first-run \
+    --no-default-browser-check \
+    --new-window \
+    --class="$APP_ID" \
+    --user-data-dir="$PROFILE_DIR" \
+    --app="$url"
+}
+
+launch_browser_mode() {
+  local port=""
+  local url=""
+
+  ensure_server
+  port="$ENSURE_SERVER_PORT"
+  url="$(auth_url "$port")"
+  log "Opening browser tab"
+
+  if ! open_url "$url"; then
+    notify_failure "Could not open your browser. Open ${url} manually."
+    printf 'Open this URL manually: %s\n' "$url" >&2
+    return 1
+  fi
+}
+
+status() {
+  local runtime_cmd=""
+  local browser_cmd=""
+  local port=""
+  local pid=""
+
+  runtime_cmd="$(resolve_runtime_command 2>/dev/null || true)"
+  browser_cmd="$(resolve_browser_command 2>/dev/null || true)"
+  port="$(verified_runtime_port 2>/dev/null || runtime_port 2>/dev/null || saved_port 2>/dev/null || true)"
+  pid="$(verified_runtime_pid 2>/dev/null || runtime_pid 2>/dev/null || true)"
+
+  printf 'app=%s\n' "$APP_NAME"
+  printf 'provider=%s\n' "$PROVIDER"
+  printf 'runtime_command=%s\n' "$runtime_cmd"
+  printf 'browser_command=%s\n' "$browser_cmd"
+  printf 'state_dir=%s\n' "$STATE_DIR"
+  printf 'cache_dir=%s\n' "$CACHE_DIR"
+  printf 'config_dir=%s\n' "$CONFIG_DIR"
+  printf 'runtime_pid=%s\n' "$pid"
+  printf 'runtime_port=%s\n' "$port"
+
+  if [ -n "$port" ] && is_unsigned_int "$port" && server_healthy "$port"; then
+    printf 'healthy=yes\n'
+  else
+    printf 'healthy=no\n'
+  fi
+}
+
+doctor() {
+  status
+  printf 'token_file=%s\n' "$TOKEN_FILE"
+  printf 'runtime_file=%s\n' "$RUNTIME_FILE"
+  printf 'runtime_fingerprint_file=%s\n' "$RUNTIME_FINGERPRINT_FILE"
+  printf 'launcher_log=%s\n' "$LAUNCHER_LOG"
+  printf 'web_log=%s\n' "$WEB_LOG"
+}
+
+case "${1:-}" in
+  --browser)
+    shift
+    launch_browser_mode "$@"
+    ;;
+  --status)
+    status
+    ;;
+  --doctor)
+    doctor
+    ;;
+  --stop)
+    stop_server
+    ;;
+  --help|-h|help)
+    usage
+    ;;
+  --version|-v|version)
+    printf '%s\n' "$APP_VERSION"
+    ;;
+  "")
+    launch_app_window
+    ;;
+  *)
+    printf 'Unknown argument: %s\n\n' "${1:-}" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
