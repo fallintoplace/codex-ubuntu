@@ -1,10 +1,8 @@
 # codex-ubuntu
 
-![Hero](assets/hero.svg)
-
 Unofficial Ubuntu-first launcher and packaging project for Ubuntu.
 
-This repository is being staged in public with a small landing commit first so the implementation can land through a real draft pull request instead of an artificial push straight to `main`.
+This repository is being staged in public with a small landing commit first so the implementation can land through a real review branch instead of an artificial one-shot push straight to `main`.
 
 ## Planned first preview
 
