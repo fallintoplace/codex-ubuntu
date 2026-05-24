@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest an improvement for launcher behavior, packaging, or provider design.
+title: "[feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or gap
+      placeholder: What is missing or frustrating today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      placeholder: What should happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this matters
+      placeholder: Tell us about the user impact, not just the implementation.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - launcher
+        - packaging
+        - desktop integration
+        - provider contract
+        - documentation
+        - security
+    validations:
+      required: true

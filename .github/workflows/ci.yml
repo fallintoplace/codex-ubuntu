@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  launcher:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make scripts executable
+        run: chmod +x launcher/codex-ubuntu scripts/*.sh tests/*.sh tests/fixtures/*
+      - name: Syntax checks
+        run: make check
+      - name: Smoke tests
+        run: make test
+      - name: Build Debian package
+        run: make build-deb

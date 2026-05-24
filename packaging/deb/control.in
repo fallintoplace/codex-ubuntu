@@ -1,0 +1,9 @@
+Package: codex-ubuntu
+Version: __VERSION__
+Section: devel
+Priority: optional
+Architecture: all
+Maintainer: codex-ubuntu contributors
+Depends: bash, curl, python3, xdg-utils
+Description: Unofficial Ubuntu launcher for Codex
+ A launcher-first Ubuntu desktop integration package for Codex.
