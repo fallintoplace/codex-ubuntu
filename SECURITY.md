@@ -1,6 +1,6 @@
 # Security policy
 
-`codex-ubuntu` is an unofficial Ubuntu launcher project, but it still handles:
+`codex-ubuntu` is an unofficial Ubuntu desktop project, but it still handles:
 
 - local auth-bearing URLs
 - process reuse and process termination
@@ -17,6 +17,7 @@ The current security focus is:
 - token redaction and log hygiene
 - XDG path handling
 - desktop integration correctness
+- safe fallback behavior while the Electron path is being built
 
 ## Reporting a vulnerability
 

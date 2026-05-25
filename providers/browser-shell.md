@@ -2,9 +2,11 @@
 
 ## Status
 
-Implemented
+Implemented fallback
 
 ## Runtime
+
+This provider stays in the repo as the recovery path. It is no longer the preferred long-term UX target, but it still needs to be strict because fallback tools often get used in the messiest moments.
 
 The current implementation expects a runtime command that supports:
 

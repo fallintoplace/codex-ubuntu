@@ -5,5 +5,7 @@ Priority: optional
 Architecture: all
 Maintainer: codex-ubuntu contributors
 Depends: bash, curl, python3, xdg-utils
-Description: Unofficial Ubuntu launcher for Codex
- A launcher-first Ubuntu desktop integration package for Codex.
+Description: Unofficial Ubuntu desktop integration for Codex
+ Unofficial Ubuntu desktop integration package for Codex.
+ Today this package installs the browser fallback utility while the
+ Electron desktop path is being built.

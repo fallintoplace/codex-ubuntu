@@ -4,9 +4,12 @@ Runtime/provider contract docs live here.
 
 Implemented now:
 
-- `browser-shell`
+- `browser-shell` fallback
 
-Planned:
+Primary target:
+
+- `desktop-payload`
+
+Optional later:
 
 - `app-server`
-- `desktop-payload`

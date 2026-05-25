@@ -2,33 +2,39 @@
 
 ## Phase 1
 
-Launcher-first public preview.
+Electron-first pivot.
 
-- secure Ubuntu launcher
-- runtime discovery
-- browser-shell provider
-- local install flow
-- Debian packaging skeleton
-- smoke tests and CI
+- Electron-first repo positioning
+- repo-owned local Electron launcher wrapper
+- browser fallback retained as recovery mode
+- reference desktop component map
+- desktop-payload migration plan
+- launcher safety preserved while the product direction changes
 
 ## Phase 2
 
-Hardening.
+Desktop intake.
 
-- better lock/race handling
-- cleaner logging and redaction
-- stronger desktop integration
-- more installer polish
+- adapt the working Electron launch chain into this repo
+- bring over Ubuntu desktop identity and protocol handling
+- define the compatibility patch layer explicitly
+- start packaging the desktop payload path in `.deb` form
 
-## Future track
+## Phase 3
 
-Exploratory local repackager path.
+Hardening and productization.
 
-This is intentionally not tied to a fixed release phase yet.
+- updater strategy
+- stronger installer polish
+- multi-instance and warm-start behavior
+- tighter packaging and release validation
 
-Promotion criteria:
+## Fallback track
 
-- legal/distribution model is clear
-- maintenance burden is acceptable
-- upstream patch drift looks manageable
-- the launcher-first path has reached diminishing returns
+The browser fallback stays alive, but as fallback:
+
+- recovery path when the Electron path is unavailable
+- constrained-environment option
+- launcher safety testbed
+
+It is no longer the main product story.

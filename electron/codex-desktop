@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DISPLAY_NAME="Codex Desktop"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/codex-ubuntu"
+CONFIG_FILE="${CONFIG_DIR}/electron.env"
+LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/codex-ubuntu"
+LOG_FILE="${LOG_DIR}/electron-wrapper.log"
+
+mkdir -p "$LOG_DIR"
+
+if [ -f "$CONFIG_FILE" ]; then
+  # shellcheck disable=SC1090
+  . "$CONFIG_FILE"
+fi
+
+log() {
+  printf '[%s] %s\n' "$(date -Is)" "$*" >>"$LOG_FILE"
+}
+
+prepend_path_once() {
+  local dir="$1"
+  case ":$PATH:" in
+    *":$dir:"*) ;;
+    *) PATH="$dir:$PATH" ;;
+  esac
+}
+
+resolve_node_bin_dir() {
+  if [ -n "${CODEX_UBUNTU_NODE_BIN_DIR:-}" ]; then
+    if [ ! -x "${CODEX_UBUNTU_NODE_BIN_DIR}/node" ]; then
+      printf 'Configured CODEX_UBUNTU_NODE_BIN_DIR is invalid: %s\n' "${CODEX_UBUNTU_NODE_BIN_DIR}" >&2
+      exit 1
+    fi
+    printf '%s\n' "${CODEX_UBUNTU_NODE_BIN_DIR}"
+    return 0
+  fi
+
+  if command -v node >/dev/null 2>&1; then
+    return 1
+  fi
+
+  local latest_nvm_bin=""
+  latest_nvm_bin="$(find "${HOME}/.nvm/versions/node" -mindepth 2 -maxdepth 2 -type d -name bin 2>/dev/null | sort -V | tail -n 1 || true)"
+  if [ -n "$latest_nvm_bin" ] && [ -x "${latest_nvm_bin}/node" ]; then
+    printf '%s\n' "$latest_nvm_bin"
+    return 0
+  fi
+
+  return 1
+}
+
+resolve_app_root() {
+  local candidate=""
+
+  if [ -n "${CODEX_UBUNTU_ELECTRON_APP_ROOT:-}" ]; then
+    candidate="${CODEX_UBUNTU_ELECTRON_APP_ROOT}"
+    if [ ! -x "${candidate}/start.sh" ]; then
+      printf 'Configured CODEX_UBUNTU_ELECTRON_APP_ROOT is invalid: %s\n' "$candidate" >&2
+      exit 1
+    fi
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  for candidate in \
+    "${HOME}/codex-desktop-linux/codex-app" \
+    "${HOME}/.local/opt/codex-desktop-linux/codex-app" \
+    "${HOME}/.local/opt/codex-desktop-linux/current/codex-app"
+  do
+    if [ -x "${candidate}/start.sh" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  printf 'Could not find a usable Codex Desktop app root.\n' >&2
+  printf 'Set CODEX_UBUNTU_ELECTRON_APP_ROOT to a directory containing start.sh.\n' >&2
+  exit 1
+}
+
+main() {
+  local node_bin_dir=""
+  local app_root=""
+
+  prepend_path_once "${HOME}/.local/bin"
+  if node_bin_dir="$(resolve_node_bin_dir)"; then
+    prepend_path_once "$node_bin_dir"
+    export CODEX_UBUNTU_NODE_BIN_DIR="$node_bin_dir"
+  fi
+  export PATH
+
+  app_root="$(resolve_app_root)"
+  export CODEX_UBUNTU_ELECTRON_APP_ROOT="$app_root"
+
+  log "Launching ${DISPLAY_NAME} from ${app_root}"
+  nohup "${app_root}/start.sh" "$@" >>"$LOG_FILE" 2>&1 &
+}
+
+main "$@"

@@ -1,0 +1,21 @@
+# manifest
+
+Payload provenance and intake metadata live here.
+
+## Tracked docs
+
+- this README
+
+## Local generated files
+
+- `current.local.json`
+
+`current.local.json` is written by the intake script and ignored by git. It records:
+
+- source payload root
+- import timestamp
+- version and upstream build metadata when available
+- copied file sizes
+- copied file SHA-256 digests
+
+That gives the repo a real intake story without checking large proprietary payload files into version control.

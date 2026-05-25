@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The launcher needs one stable contract so runtime strategies can change without rewriting process-safety logic every time.
+The project needs one stable contract so fallback runtime strategies and the future desktop-payload path can evolve without rewriting safety logic every time.
 
 ## Required launcher-facing capabilities
 
@@ -50,11 +50,14 @@ If any of these checks fail, the launcher must not kill the process.
 
 ## Provider statuses
 
-### Implemented
+### Implemented now
 
-- `browser-shell`
+- `browser-shell` fallback
 
-### Planned
+### Primary target
+
+- `desktop-payload`
+
+### Optional later
 
 - `app-server`
-- `desktop-payload`

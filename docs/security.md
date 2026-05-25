@@ -10,7 +10,7 @@ This project manages:
 - desktop launch surfaces
 - process reuse and process termination
 
-That means a local-only Ubuntu launcher can still create serious damage if it stops the wrong process or leaks the wrong token.
+That means a local-only Ubuntu desktop project can still create serious damage if it stops the wrong process or leaks the wrong token.
 
 ## Security priorities
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Superseded by 0002
 
 ## Context
 

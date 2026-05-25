@@ -2,74 +2,110 @@
 
 ## Positioning
 
-`codex-ubuntu` is Ubuntu-first and implementation-conscious.
+`codex-ubuntu` is Ubuntu-first and Electron-first.
 
 The repository should not assume:
 
-- one browser
 - one user-specific install path
-- one long-term runtime strategy
-- one future packaging outcome
+- one future asset or distribution model
+- one compatibility patch strategy that never changes
 
-The repository should define stable boundaries and implement only the parts that are mature enough to own today.
+The repository should assume one important thing now:
+
+- the primary UX target is a real Ubuntu desktop app, not a browser wrapper
 
 ## Layer model
 
 ```text
 user
   -> desktop integration
-  -> launcher
-  -> runtime provider
+  -> desktop payload (primary target)
+  -> fallback launcher
+  -> runtime/provider contract
   -> auth/state/logging
   -> packaging/install path
 ```
 
-## Current implemented architecture
+## Current architecture state
 
-### V1
+### Product direction
 
-- launcher-first
-- browser-shell runtime provider
+- Electron-first desktop payload
+- `.deb` as the primary package target
+- browser fallback retained as recovery mode
+
+### Implemented today
+
+- repo-owned local Electron launcher wrapper
+- secure browser-shell fallback launcher
 - local install flow
+- local Electron install flow
 - Debian packaging skeleton
 - smoke tests and CI
 
-### Future track
+### In progress
 
-- optional local repackager path if legal and maintenance tradeoffs are acceptable
+- Electron-first repo structure
+- desktop-payload migration plan
+- compatibility boundary between Ubuntu patches and upstream payload
 
-The local repackager path is intentionally exploratory. It is not assigned to a committed version milestone yet.
+### Optional later
+
+- `app-server` provider
 
 ## Boundaries
 
-### Launcher
+### Electron desktop payload
 
 Responsibilities:
 
+- own the real app-window experience
+- preserve Ubuntu desktop identity
+- launch the packaged desktop runtime predictably
+- define the narrow Linux-specific patch and compatibility layer
+
+Should not:
+
+- absorb unrelated packaging concerns into UI patching
+- hide where upstream payload behavior ends and Ubuntu-specific behavior begins
+- quietly depend on one personal machine setup
+
+Current implementation status:
+
+- repo-owned local launcher wrapper is in place
+- payload ownership is still external
+
+### Fallback launcher
+
+Responsibilities:
+
+- stay available as a recovery path
 - discover runtime and browser commands
 - manage XDG config/cache/state
-- own process-safety rules
-- own app-window launch behavior
+- own process-safety rules for browser-shell mode
 - own local health checks and stop behavior
 
 Should not:
 
-- hardcode personal machine paths
-- assume all providers share the same startup semantics
+- pretend to be the main product experience
+- take over the Electron roadmap
 - smuggle Debian packaging logic directly into runtime control
 
-### Runtime provider
+### Runtime/provider contract
 
-The launcher talks to a provider contract.
+The fallback launcher and any future desktop-payload control surface should talk to a stable provider contract.
 
 Implemented provider:
 
-- `browser-shell`
+- `browser-shell` fallback
 
-Planned providers:
+Primary target provider:
+
+- `desktop-payload`
+
+Optional later:
 
 - `app-server`
-- `desktop-payload`
 
 The provider contract is defined in [providers/contract.md](../providers/contract.md).
 
@@ -81,6 +117,7 @@ Responsibilities:
 - icon registration
 - GNOME/BAMF-friendly identity
 - protocol handler integration when ready
+- alignment between shipped window class and launcher identity
 
 ### Packaging
 
@@ -97,12 +134,16 @@ Deferred:
 - Snap
 - Flatpak
 
-## Why launcher-first
+## Why Electron-first
 
-Launcher-first is the strongest v1 because it delivers a real Ubuntu app experience without pretending we already own:
+Browser-first was useful for hardening launcher safety, but it hit the exact ceiling people complain about:
 
-- a stable upstream desktop repackager
-- a final upstream asset redistribution model
-- a mature updater pipeline
+- it feels like a browser wrapper
+- when it breaks, it breaks like a browser wrapper
+- it does not earn the same trust as a real desktop app
 
-It also lets the repo publish a concrete product now instead of a pure design memo.
+Electron-first is now the right main path because:
+
+- the working Ubuntu desktop reference already proves the UX people actually want
+- the app identity, dock behavior, and window model are materially better
+- browser mode still remains valuable as fallback and recovery instead of pretending to be the main event

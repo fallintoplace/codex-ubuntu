@@ -869,12 +869,13 @@ token_path = pathlib.Path(sys.argv[1])
 web_bind = sys.argv[2]
 web_port = sys.argv[3]
 root_url = f"http://{web_bind}:{web_port}/"
+auth_url = f"http://{web_bind}:{web_port}/__webstrapper/auth"
 token = token_path.read_text(encoding="utf-8").strip()
 
 if not token:
     print(root_url)
 else:
-    print(f"{root_url}?token={urllib.parse.quote(token)}")
+    print(f"{auth_url}?token={urllib.parse.quote(token)}")
 PY
 }
 

@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, quote, urlparse
 
 
 def read_env_int(name: str, default: int = 0) -> int:
@@ -52,11 +53,14 @@ def parse_web_args(argv: list[str]) -> dict[str, str]:
 
 class Handler(BaseHTTPRequestHandler):
     token = ""
+    session_cookie_value = "fake-session"
     health_mode = "healthy"
     health_ready_at = 0.0
 
     def do_GET(self) -> None:
-        if self.path == "/__webstrapper/healthz":
+        parsed = urlparse(self.path)
+
+        if parsed.path == "/__webstrapper/healthz":
             if self.health_mode == "unhealthy" or time.monotonic() < self.health_ready_at:
                 self.send_response(503)
                 self.send_header("Content-Type", "text/plain")
@@ -70,11 +74,41 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(b"ok")
             return
 
+        if parsed.path == "/__webstrapper/auth":
+            supplied_token = parse_qs(parsed.query).get("token", [""])[0]
+            if supplied_token != self.token:
+                self.send_response(401)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"unauthorized")
+                return
+
+            self.send_response(302)
+            self.send_header("Set-Cookie", f"cw_session={self.session_cookie_value}; Path=/; HttpOnly")
+            self.send_header("Location", f"/?token={quote(self.token)}")
+            self.end_headers()
+            return
+
+        if not self._has_session_cookie():
+            self.send_response(401)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"unauthorized")
+            return
+
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
         body = f"<html><body>fake runtime token={self.token}</body></html>".encode("utf-8")
         self.wfile.write(body)
+
+    def _has_session_cookie(self) -> bool:
+        cookie_header = self.headers.get("Cookie", "")
+        for part in cookie_header.split(";"):
+            name, _, value = part.strip().partition("=")
+            if name == "cw_session" and value == self.session_cookie_value:
+                return True
+        return False
 
     def log_message(self, fmt: str, *args: object) -> None:
         sys.stdout.write((fmt % args) + "\n")
@@ -114,7 +148,9 @@ def main() -> int:
 
     if stdout_secret:
         sys.stdout.write(f"runtime token={stdout_secret}\n")
-        sys.stdout.write(f"Local login command: http://{bind}:{port}/?token={stdout_secret}\n")
+        sys.stdout.write(
+            f"Local login command: http://{bind}:{port}/__webstrapper/auth?token={stdout_secret}\n"
+        )
         sys.stdout.flush()
 
     shutting_down = threading.Event()

@@ -2,7 +2,7 @@
 
 Thanks for helping make `codex-ubuntu` better.
 
-This project is still early, but it is not casual about launcher safety. Small-looking changes in runtime discovery, PID handling, or browser launch behavior can break trust fast, so please read the docs before editing core flows.
+This project is still early, but it is not casual about desktop-launch safety. Small-looking changes in runtime discovery, PID handling, browser fallback behavior, or future Electron intake can break trust fast, so please read the docs before editing core flows.
 
 ## Before you open a pull request
 
@@ -35,6 +35,7 @@ make install-local
 
 Good first contributions:
 
+- Electron-first repo shaping
 - launcher hardening
 - test coverage improvements
 - desktop integration polish
@@ -46,7 +47,7 @@ Changes that need extra care:
 - process stop or reuse logic
 - provider contract changes
 - token handling or logging changes
-- anything that touches auth, runtime metadata, or port ownership
+- anything that touches auth, runtime metadata, port ownership, or desktop identity
 
 ## Style expectations
 

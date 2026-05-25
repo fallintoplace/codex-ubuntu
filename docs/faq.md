@@ -2,15 +2,30 @@
 
 ## Is this a native Ubuntu app?
 
-Not yet in the fully native sense.
+That is now the target.
 
-Today the implemented path is a launcher-first browser-shell experience with real Ubuntu desktop integration. It behaves more like an app than a random browser tab, but it is not pretending to be a finished upstream Linux desktop port.
+Today the repo has two runnable local paths:
 
-## Why not jump straight to Electron or repackaging?
+- a repo-owned Electron launcher wrapper for local dogfooding
+- the browser fallback launcher
 
-Because the maintenance bill is real.
+The fully self-contained Electron payload is still not owned by this repo yet.
 
-A launcher-first path gives the project something honest and usable to ship now while keeping the heavier repackager path exploratory until the legal and maintenance tradeoffs are clearer.
+## Why pivot away from browser-first?
+
+Because browser-first was not good enough as the main experience.
+
+It was useful for hardening launcher safety and packaging basics, but it still felt like a wrapper. The Electron path is the one that actually feels like a real desktop app in daily use.
+
+## Is the browser path dead?
+
+No.
+
+It stays as fallback and recovery mode:
+
+- when the Electron path is unavailable
+- when a local environment is constrained
+- when a simpler debug surface is useful
 
 ## Why Ubuntu-first instead of generic Linux-first?
 
@@ -18,11 +33,11 @@ Because support claims are expensive.
 
 Ubuntu-first keeps the scope narrow enough to do packaging, desktop integration, and runtime assumptions properly before expanding outward.
 
-## Is the repackager path dead?
+## Is the Electron desktop-payload path now the main direction?
 
-No.
+Yes.
 
-It is deliberately kept as a future track rather than a committed milestone. That keeps the repo honest while still leaving room for a higher-fidelity desktop path later.
+But that does not mean the repository will suddenly become sloppy about distribution or patching boundaries. The main product direction is Electron-first, and the implementation still needs to stay explicit about what is upstream, what is Ubuntu-specific, and what rights are required to ship assets.
 
 ## What does secure mean here?
 
@@ -32,6 +47,7 @@ At minimum:
 - stale runtime state should not be blindly trusted
 - token-bearing URLs should not be sprayed into logs
 - paths should not assume one specific personal machine layout
+- desktop integration should not silently drift away from the actual running app identity
 
 See [docs/security.md](security.md).
 
@@ -39,4 +55,4 @@ See [docs/security.md](security.md).
 
 Not by default.
 
-The current repository code and docs are MIT-licensed, but that does not grant rights to upstream proprietary desktop assets.
+The repository code and docs are MIT-licensed, but that does not grant rights to upstream proprietary desktop assets.

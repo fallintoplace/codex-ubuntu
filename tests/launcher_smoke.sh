@@ -204,7 +204,7 @@ test_browser_launch_creates_verified_state() {
     exit 1
   }
   assert_contains "$browser_log" "--class=codex-ubuntu"
-  assert_contains "$browser_log" "--app=http://127.0.0.1:${runtime_port}/?token=fake-token"
+  assert_contains "$browser_log" "--app=http://127.0.0.1:${runtime_port}/__webstrapper/auth?token=fake-token"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
   XDG_CONFIG_HOME="${tmpdir}/config" \
@@ -372,7 +372,7 @@ test_hanging_health_server_is_timed_out_and_not_reused() {
   runtime_port="$(read_runtime_field "$runtime_file" port)"
 
   assert_ne "$requested_port" "$runtime_port" "launcher should not reuse a hanging health endpoint"
-  assert_contains "$browser_log" "--app=http://127.0.0.1:${runtime_port}/?token=fake-token"
+  assert_contains "$browser_log" "--app=http://127.0.0.1:${runtime_port}/__webstrapper/auth?token=fake-token"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
   XDG_CONFIG_HOME="${tmpdir}/config" \
@@ -418,9 +418,9 @@ test_unverified_healthy_server_is_not_reused() {
   runtime_port="$(read_runtime_field "$runtime_file" port)"
 
   assert_ne "$requested_port" "$runtime_port" "launcher should not reuse unverified healthy server"
-  assert_contains "$browser_log" "--app=http://127.0.0.1:${runtime_port}/?token=fake-token"
+  assert_contains "$browser_log" "--app=http://127.0.0.1:${runtime_port}/__webstrapper/auth?token=fake-token"
   assert_not_contains "$browser_log" "stale-secret-token"
-  assert_not_contains "$browser_log" "--app=http://127.0.0.1:${requested_port}/?token=stale-secret-token"
+  assert_not_contains "$browser_log" "--app=http://127.0.0.1:${requested_port}/__webstrapper/auth?token=stale-secret-token"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
   XDG_CONFIG_HOME="${tmpdir}/config" \
@@ -555,7 +555,7 @@ test_manual_open_fallback_redacts_token_url() {
     exit 1
   fi
 
-  assert_contains "$stderr_file" "Manual URL: http://127.0.0.1:${requested_port}/?token=%3Credacted%3E"
+  assert_contains "$stderr_file" "Manual URL: http://127.0.0.1:${requested_port}/__webstrapper/auth?token=%3Credacted%3E"
   assert_contains "$stderr_file" "CODEX_UBUNTU_DEBUG_SHOW_TOKEN_URL=1"
   assert_not_contains "$stderr_file" "fake-token"
 }
@@ -597,8 +597,8 @@ test_fresh_runtime_relaunches_even_if_window_exists() {
   "$LAUNCHER"
 
   assert_eq "2" "$(wc -l <"$browser_log" | tr -d '[:space:]')" "fresh runtime should relaunch browser even if a window exists"
-  assert_contains "$browser_log" "--app=http://127.0.0.1:${requested_port_one}/?token=fake-token"
-  assert_contains "$browser_log" "--app=http://127.0.0.1:${requested_port_two}/?token=fake-token"
+  assert_contains "$browser_log" "--app=http://127.0.0.1:${requested_port_one}/__webstrapper/auth?token=fake-token"
+  assert_contains "$browser_log" "--app=http://127.0.0.1:${requested_port_two}/__webstrapper/auth?token=fake-token"
 
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
@@ -630,7 +630,7 @@ test_retries_fingerprint_capture_after_health() {
   wait_for_file "$fingerprint_file" "runtime fingerprint file was not created after delayed fingerprint capture"
 
   runtime_port="$(read_runtime_field "$runtime_file" port)"
-  assert_contains "$browser_log" "--app=http://127.0.0.1:${runtime_port}/?token=fake-token"
+  assert_contains "$browser_log" "--app=http://127.0.0.1:${runtime_port}/__webstrapper/auth?token=fake-token"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
   XDG_CONFIG_HOME="${tmpdir}/config" \

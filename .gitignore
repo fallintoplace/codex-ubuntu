@@ -16,3 +16,7 @@ node_modules/
 upstream/downloads/
 upstream/work/
 tmp/
+electron/vendor/current/
+electron/vendor/staging/
+electron/manifest/*.local.json
+review-bundle/
