@@ -39,7 +39,7 @@ The current repository is not just a design memo. It already ships:
 - runtime and browser discovery without hardcoded personal paths
 - local install flow
 - local Electron install flow
-- `.deb` build path for the fallback utility
+- `.deb` build path for the fallback preview utility
 - smoke tests and CI
 - Electron-first repo structure and migration docs
 
@@ -57,7 +57,7 @@ The current repository is not just a design memo. It already ships:
 
 ## Package reality today
 
-`make build-deb` currently builds the **browser fallback utility package**, not the Electron desktop app.
+`make build-deb` currently builds the **browser fallback preview package**, not the Electron desktop app.
 
 That means the `.deb` is useful as a preview/recovery install, but it is **not** yet the main Electron product this repository is aiming for.
 
@@ -110,9 +110,9 @@ See [providers/contract.md](providers/contract.md), [providers/browser-shell.md]
 | Electron-first repo structure | Yes | Docs and repo layout now point at the desktop path |
 | Process-safe stop/reuse | Yes | Fallback launcher refuses to kill unverified runtimes |
 | XDG state layout | Yes | Config, cache, and state are separated |
-| Local install | Yes | `make install-local` installs the fallback utility |
+| Local install | Yes | `make install-local` installs the fallback preview utility |
 | Local Electron install | Yes | `make install-electron-local` swaps the active desktop launcher to repo code with rollback preserved |
-| Debian package build | Yes | Today this packages the fallback utility, not `Codex Desktop` |
+| Debian package build | Yes | Today this packages the fallback preview utility, not `Codex Desktop` |
 | CI | Yes | Syntax, smoke tests, packaging |
 | Desktop-payload provider | Not yet | Main implementation target |
 | App Server provider | Not yet | Optional future provider |
@@ -124,12 +124,12 @@ See [providers/contract.md](providers/contract.md), [providers/browser-shell.md]
 
 | Path | Who it is for | Works from this repo alone? | Current reality |
 | --- | --- | --- | --- |
-| Browser fallback | People who want the current fully repo-owned path | Yes | Lowest-fidelity UX, but easiest to run from this repo today |
+| Browser fallback preview | People who want the current fully repo-owned recovery path | Yes | Lowest-fidelity UX, but easiest to run from this repo today |
 | Electron developer path | People who want the real desktop feel | Yes | Best UX, with a staged local build bridge and local install flow |
 
 Important:
 
-- `make build-deb` packages the browser fallback path today
+- `make build-deb` packages the browser fallback preview path today
 - `Codex Desktop` is currently built and installed through the local Electron build/install flow, not through the `.deb`
 
 ### What you need locally
@@ -230,7 +230,7 @@ make install-electron-local SOURCE_APP_ROOT=/path/to/codex-app
 
 ### Fallback launcher quick start
 
-If you want the current runnable implementation from this repo today, that is still the fallback launcher.
+If you want the current runnable implementation from this repo today, that is still the fallback preview launcher.
 
 Strict behavior:
 
@@ -256,7 +256,7 @@ Launch it:
 codex-ubuntu
 ```
 
-Or open `Codex Ubuntu (Unofficial)` from the Ubuntu app grid.
+Or open `Codex Ubuntu Fallback` from the Ubuntu app grid.
 
 ### What this repo does not ship yet
 

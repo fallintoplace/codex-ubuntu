@@ -2,7 +2,7 @@
 
 Debian packaging templates for the Ubuntu app.
 
-Today the packaged implementation is still the browser fallback utility.
+Today the packaged implementation is still the browser fallback preview utility.
 
 Important:
 

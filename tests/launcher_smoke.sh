@@ -633,7 +633,7 @@ test_lock_timeout_fails_loudly() {
     exit 1
   fi
 
-  assert_contains "$stderr_file" "Another Codex Ubuntu (Unofficial) launcher operation is already in progress."
+  assert_contains "$stderr_file" "Another Codex Ubuntu Fallback launcher operation is already in progress."
   assert_contains "$stderr_file" "codex-ubuntu --status"
 }
 

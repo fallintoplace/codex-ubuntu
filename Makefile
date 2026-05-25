@@ -1,6 +1,9 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: check validate-desktop test install-local install-electron-local import-electron-payload build-deb build-electron-local bootstrap-electron-local
+.PHONY: check require-desktop-tools validate-desktop test package-smoke install-local install-electron-local import-electron-payload build-deb build-electron-local bootstrap-electron-local
+
+require-desktop-tools:
+	command -v desktop-file-validate >/dev/null 2>&1 || { printf 'desktop-file-validate is required for validation. Install desktop-file-utils.\n' >&2; exit 1; }
 
 check: validate-desktop
 	bash -n electron/codex-desktop
@@ -10,28 +13,30 @@ check: validate-desktop
 	bash -n scripts/install-electron-local.sh
 	bash -n scripts/install-local.sh
 	bash -n scripts/build-deb.sh
+	bash -n tests/render_desktop_file_smoke.sh
+	bash -n tests/deb_package_smoke.sh
 	bash -n tests/electron_wrapper_smoke.sh
 	bash -n tests/install_electron_local_smoke.sh
 	bash -n tests/launcher_smoke.sh
 
-validate-desktop:
+validate-desktop: require-desktop-tools
 	@tmpfile="$$(mktemp --suffix=.desktop)"; \
 		scripts/render-desktop-file.sh "/usr/bin/codex-ubuntu" "codex-ubuntu" "$$tmpfile"; \
-		if command -v desktop-file-validate >/dev/null 2>&1; then \
-			desktop-file-validate "$$tmpfile"; \
-		fi; \
+		desktop-file-validate "$$tmpfile"; \
 		rm -f "$$tmpfile"; \
 		tmpfile="$$(mktemp --suffix=.desktop)"; \
 		scripts/render-desktop-file.sh "desktop/codex-desktop.desktop.in" "/usr/bin/codex-desktop" "codex-desktop" "$$tmpfile"; \
-		if command -v desktop-file-validate >/dev/null 2>&1; then \
-			desktop-file-validate "$$tmpfile"; \
-		fi; \
+		desktop-file-validate "$$tmpfile"; \
 		rm -f "$$tmpfile"
 
 test: check
+	bash tests/render_desktop_file_smoke.sh
 	bash tests/electron_wrapper_smoke.sh
 	bash tests/install_electron_local_smoke.sh
 	bash tests/launcher_smoke.sh
+
+package-smoke:
+	bash tests/deb_package_smoke.sh
 
 install-local:
 	scripts/install-local.sh

@@ -30,7 +30,7 @@ install -m 755 "${REPO_DIR}/packaging/deb/postinst" "${DEBIAN_DIR}/postinst"
 install -m 755 "${REPO_DIR}/packaging/deb/postrm" "${DEBIAN_DIR}/postrm"
 
 mkdir -p "$DIST_DIR"
-dpkg-deb --build "$PKGROOT" "$PACKAGE_PATH" >/dev/null
+dpkg-deb --root-owner-group --build "$PKGROOT" "$PACKAGE_PATH" >/dev/null
 
 printf 'Built %s\n' "$PACKAGE_PATH"
 printf 'Package note: this preview .deb installs the browser fallback utility, not the Electron desktop app.\n'

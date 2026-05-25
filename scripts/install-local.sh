@@ -19,3 +19,4 @@ update-desktop-database "${APP_DIR}" >/dev/null 2>&1 || true
 gtk-update-icon-cache -f -t "${DATA_HOME}/icons/hicolor" >/dev/null 2>&1 || true
 
 printf 'Installed local launcher to %s\n' "${BIN_DIR}/codex-ubuntu"
+printf 'Installed local fallback desktop entry to %s\n' "${APP_DIR}/codex-ubuntu.desktop"

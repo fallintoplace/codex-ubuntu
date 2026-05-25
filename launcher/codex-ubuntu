@@ -3,7 +3,7 @@ set -euo pipefail
 umask 077
 
 APP_ID="codex-ubuntu"
-APP_NAME="Codex Ubuntu (Unofficial)"
+APP_NAME="Codex Ubuntu Fallback"
 APP_VERSION="${CODEX_UBUNTU_VERSION:-0.2.1}"
 PROVIDER="${CODEX_UBUNTU_PROVIDER:-browser-shell}"
 WEB_BIND="${CODEX_UBUNTU_BIND:-127.0.0.1}"

@@ -1,8 +1,8 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Codex Ubuntu (Unofficial)
-Comment=Launch Codex on Ubuntu through the unofficial launcher
+Name=Codex Ubuntu Fallback
+Comment=Launch the browser fallback preview for Ubuntu
 Exec=__EXEC__
 Terminal=false
 Categories=Development;IDE;

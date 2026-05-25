@@ -30,8 +30,23 @@ exec_path = sys.argv[2]
 icon_name = sys.argv[3]
 output_path = Path(sys.argv[4])
 
+RESERVED_EXEC_CHARS = set(' \t\n"\'\\><~|&;$*?#()`')
+
+
+def render_exec_argument(argument: str) -> str:
+    rendered = argument.replace("%", "%%")
+    if not any(char in RESERVED_EXEC_CHARS for char in rendered):
+        return rendered
+
+    rendered = rendered.replace("\\", "\\\\")
+    rendered = rendered.replace('"', '\\"')
+    rendered = rendered.replace("`", "\\`")
+    rendered = rendered.replace("$", "\\$")
+    return f'"{rendered}"'
+
+
 contents = template_path.read_text(encoding="utf-8")
-contents = contents.replace("__EXEC__", exec_path)
+contents = contents.replace("__EXEC__", render_exec_argument(exec_path))
 contents = contents.replace("__ICON__", icon_name)
 output_path.write_text(contents, encoding="utf-8")
 PY
