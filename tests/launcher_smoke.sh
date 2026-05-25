@@ -11,6 +11,7 @@ FAKE_HANGING_HEALTH_SERVER="${REPO_DIR}/tests/fixtures/fake_hanging_health_serve
 FAKE_XDOTOOL_DIR="${REPO_DIR}/tests/fixtures"
 TEST_TMPDIRS=()
 TEST_PIDS=()
+TEST_TIMEOUT_SECONDS="${CODEX_UBUNTU_TEST_TIMEOUT_SECONDS:-20}"
 
 assert_eq() {
   local expected="$1"
@@ -72,7 +73,7 @@ cleanup_test_artifacts() {
       XDG_CONFIG_HOME="${tmpdir}/config" \
       XDG_CACHE_HOME="${tmpdir}/cache" \
       XDG_STATE_HOME="${tmpdir}/state" \
-      "$LAUNCHER" --stop >/dev/null 2>&1 || true
+      run_launcher --stop >/dev/null 2>&1 || true
       rm -rf "$tmpdir"
     fi
   done
@@ -124,9 +125,20 @@ import sys
 
 timeout = float(sys.argv[1])
 cmd = sys.argv[2:]
-completed = subprocess.run(cmd, timeout=timeout)
+try:
+    completed = subprocess.run(cmd, timeout=timeout)
+except subprocess.TimeoutExpired:
+    print(
+        f"command timed out after {timeout} seconds: {' '.join(cmd)}",
+        file=sys.stderr,
+    )
+    raise SystemExit(124)
 raise SystemExit(completed.returncode)
 PY
+}
+
+run_launcher() {
+  run_with_timeout "$TEST_TIMEOUT_SECONDS" "$LAUNCHER" "$@"
 }
 
 wait_for_background_result() {
@@ -185,7 +197,7 @@ test_browser_launch_creates_verified_state() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER"
+  run_launcher
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   fingerprint_file="${tmpdir}/state/codex-ubuntu/runtime.fingerprint.json"
@@ -210,7 +222,7 @@ test_browser_launch_creates_verified_state() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --stop
+  run_launcher --stop
 }
 
 test_web_log_redacts_runtime_secrets() {
@@ -230,7 +242,7 @@ test_web_log_redacts_runtime_secrets() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER"
+  run_launcher
 
   wait_for_file "$web_log" "web log was not created for redaction test"
   assert_contains "$web_log" "token=<redacted>"
@@ -241,7 +253,7 @@ test_web_log_redacts_runtime_secrets() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --stop
+  run_launcher --stop
 }
 
 test_stop_does_not_kill_unrelated_process() {
@@ -257,7 +269,7 @@ test_stop_does_not_kill_unrelated_process() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --stop
+  run_launcher --stop
 
   if ! kill -0 "$sleeper" >/dev/null 2>&1; then
     printf 'stop killed unrelated process\n' >&2
@@ -280,7 +292,7 @@ test_stop_refuses_runtime_with_tampered_fingerprint() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --browser >/dev/null 2>&1 || true
+  run_launcher --browser >/dev/null 2>&1 || true
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   fingerprint_file="${tmpdir}/state/codex-ubuntu/runtime.fingerprint.json"
@@ -293,7 +305,7 @@ test_stop_refuses_runtime_with_tampered_fingerprint() {
   if XDG_CONFIG_HOME="${tmpdir}/config" \
     XDG_CACHE_HOME="${tmpdir}/cache" \
     XDG_STATE_HOME="${tmpdir}/state" \
-    "$LAUNCHER" --stop >/dev/null 2>"${tmpdir}/stop.err"; then
+    run_launcher --stop >/dev/null 2>"${tmpdir}/stop.err"; then
     printf 'stop unexpectedly succeeded after fingerprint tampering\n' >&2
     exit 1
   fi
@@ -320,7 +332,7 @@ test_stop_verified_runtime_removes_state() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --browser >/dev/null 2>&1 || true
+  run_launcher --browser >/dev/null 2>&1 || true
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   wait_for_file "$runtime_file" "runtime metadata file was not created for stop test"
@@ -330,7 +342,7 @@ test_stop_verified_runtime_removes_state() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --stop
+  run_launcher --stop
 
   if kill -0 "$runtime_pid" >/dev/null 2>&1; then
     printf 'verified runtime is still alive after stop\n' >&2
@@ -365,7 +377,7 @@ test_hanging_health_server_is_timed_out_and_not_reused() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  run_with_timeout 5 "$LAUNCHER"
+  run_launcher
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   wait_for_file "$runtime_file" "runtime metadata file was not created for hanging health server test"
@@ -378,7 +390,7 @@ test_hanging_health_server_is_timed_out_and_not_reused() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --stop
+  run_launcher --stop
 }
 
 test_unverified_healthy_server_is_not_reused() {
@@ -410,7 +422,7 @@ test_unverified_healthy_server_is_not_reused() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER"
+  run_launcher
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   wait_for_file "$runtime_file" "runtime metadata file was not created for unverified server test"
@@ -426,7 +438,7 @@ test_unverified_healthy_server_is_not_reused() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --stop
+  run_launcher --stop
 }
 
 test_invalid_runtime_override_fails_loudly() {
@@ -442,7 +454,7 @@ test_invalid_runtime_override_fails_loudly() {
     XDG_CONFIG_HOME="${tmpdir}/config" \
     XDG_CACHE_HOME="${tmpdir}/cache" \
     XDG_STATE_HOME="${tmpdir}/state" \
-    "$LAUNCHER" --browser >/dev/null 2>"$stderr_file"; then
+    run_launcher --browser >/dev/null 2>"$stderr_file"; then
     printf 'invalid runtime override unexpectedly succeeded\n' >&2
     exit 1
   fi
@@ -464,12 +476,16 @@ test_invalid_browser_override_fails_loudly() {
     XDG_CONFIG_HOME="${tmpdir}/config" \
     XDG_CACHE_HOME="${tmpdir}/cache" \
     XDG_STATE_HOME="${tmpdir}/state" \
-    "$LAUNCHER" >/dev/null 2>"$stderr_file"; then
+    run_launcher >/dev/null 2>"$stderr_file"; then
     printf 'invalid browser override unexpectedly succeeded\n' >&2
     exit 1
   fi
 
   assert_contains "$stderr_file" "CODEX_UBUNTU_BROWSER is set to /definitely/missing-browser"
+  if [ -e "${tmpdir}/state/codex-ubuntu/token.runtime" ]; then
+    printf 'invalid browser override should not have started a runtime\n' >&2
+    exit 1
+  fi
 }
 
 test_non_loopback_bind_requires_opt_in() {
@@ -486,7 +502,7 @@ test_non_loopback_bind_requires_opt_in() {
     XDG_CONFIG_HOME="${tmpdir}/config" \
     XDG_CACHE_HOME="${tmpdir}/cache" \
     XDG_STATE_HOME="${tmpdir}/state" \
-    "$LAUNCHER" --browser >/dev/null 2>"$stderr_file"; then
+    run_launcher --browser >/dev/null 2>"$stderr_file"; then
     printf 'non-loopback bind unexpectedly succeeded without opt-in\n' >&2
     exit 1
   fi
@@ -512,7 +528,7 @@ test_compatible_runtime_is_stoppable() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER"
+  run_launcher
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   wait_for_file "$runtime_file" "runtime metadata file was not created for compatible runtime test"
@@ -523,7 +539,7 @@ test_compatible_runtime_is_stoppable() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --stop
+  run_launcher --stop
 
   if kill -0 "$runtime_pid" >/dev/null 2>&1; then
     printf 'compatible runtime is still alive after stop\n' >&2
@@ -550,7 +566,7 @@ test_manual_open_fallback_redacts_token_url() {
     XDG_CONFIG_HOME="${tmpdir}/config" \
     XDG_CACHE_HOME="${tmpdir}/cache" \
     XDG_STATE_HOME="${tmpdir}/state" \
-    "$LAUNCHER" --browser >/dev/null 2>"$stderr_file"; then
+    run_launcher --browser >/dev/null 2>"$stderr_file"; then
     printf 'manual-open fallback unexpectedly succeeded without a browser or opener\n' >&2
     exit 1
   fi
@@ -578,12 +594,12 @@ test_fresh_runtime_relaunches_even_if_window_exists() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER"
+  run_launcher
 
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --stop
+  run_launcher --stop
 
   PATH="${FAKE_XDOTOOL_DIR}:$PATH" \
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
@@ -594,7 +610,7 @@ test_fresh_runtime_relaunches_even_if_window_exists() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER"
+  run_launcher
 
   assert_eq "2" "$(wc -l <"$browser_log" | tr -d '[:space:]')" "fresh runtime should relaunch browser even if a window exists"
   assert_contains "$browser_log" "--app=http://127.0.0.1:${requested_port_one}/__webstrapper/auth?token=fake-token"
@@ -603,7 +619,7 @@ test_fresh_runtime_relaunches_even_if_window_exists() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --stop
+  run_launcher --stop
 }
 
 test_retries_fingerprint_capture_after_health() {
@@ -622,7 +638,7 @@ test_retries_fingerprint_capture_after_health() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER"
+  run_launcher
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   fingerprint_file="${tmpdir}/state/codex-ubuntu/runtime.fingerprint.json"
@@ -636,7 +652,7 @@ test_retries_fingerprint_capture_after_health() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --stop
+  run_launcher --stop
 }
 
 test_restart_keeps_outer_lock_during_verified_stop() {
@@ -672,7 +688,7 @@ test_restart_keeps_outer_lock_during_verified_stop() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --browser >"$launcher_one_log" 2>&1 &
+  run_launcher --browser >"$launcher_one_log" 2>&1 &
   launcher_one="$!"
 
   sleep 0.1
@@ -686,7 +702,7 @@ test_restart_keeps_outer_lock_during_verified_stop() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --browser >"$launcher_two_log" 2>&1 &
+  run_launcher --browser >"$launcher_two_log" 2>&1 &
   launcher_two="$!"
 
   if wait_for_background_result "$launcher_one" "$launcher_one_log" "first launcher"; then
@@ -709,7 +725,7 @@ test_restart_keeps_outer_lock_during_verified_stop() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --stop
+  run_launcher --stop
 }
 
 chmod +x \

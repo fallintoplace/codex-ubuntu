@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 APP_ID="codex-ubuntu"
 APP_NAME="Codex Ubuntu (Unofficial)"
@@ -320,6 +321,15 @@ expected_token_file = sys.argv[3]
 expected_bind = sys.argv[4]
 provider = sys.argv[5]
 
+
+def read_proc_starttime(stat_path: pathlib.Path) -> int:
+    stat_text = stat_path.read_text(encoding="utf-8")
+    close_index = stat_text.rfind(")")
+    if close_index == -1:
+        raise ValueError("missing comm field terminator")
+    fields = stat_text[close_index + 2 :].split()
+    return int(fields[19])
+
 try:
     runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
 except Exception:
@@ -370,8 +380,7 @@ except OSError:
     proc_exe = ""
 
 try:
-    stat_fields = stat_path.read_text(encoding="utf-8").split()
-    proc_starttime = int(stat_fields[21])
+    proc_starttime = read_proc_starttime(stat_path)
 except Exception:
     raise SystemExit(1)
 
@@ -485,6 +494,15 @@ cmdline_path = pathlib.Path(f"/proc/{pid}/cmdline")
 exe_path = pathlib.Path(f"/proc/{pid}/exe")
 stat_path = pathlib.Path(f"/proc/{pid}/stat")
 
+
+def read_proc_starttime(stat_path: pathlib.Path) -> int:
+    stat_text = stat_path.read_text(encoding="utf-8")
+    close_index = stat_text.rfind(")")
+    if close_index == -1:
+        raise ValueError("missing comm field terminator")
+    fields = stat_text[close_index + 2 :].split()
+    return int(fields[19])
+
 try:
     fingerprint = json.loads(pathlib.Path(fingerprint_path).read_text(encoding="utf-8"))
 except Exception:
@@ -513,8 +531,7 @@ if fingerprint_exe and proc_exe != fingerprint_exe:
     raise SystemExit(1)
 
 try:
-    stat_fields = stat_path.read_text(encoding="utf-8").split()
-    proc_starttime = int(stat_fields[21])
+    proc_starttime = read_proc_starttime(stat_path)
 except Exception:
     raise SystemExit(1)
 
@@ -635,34 +652,115 @@ raise SystemExit(1)
 PY
 }
 
-redact_stream() {
-  python3 -c '
-import re
-import sys
-
-for line in sys.stdin:
-    line = re.sub(r"token=[^\"&\s]+", "token=<redacted>", line)
-    if line.startswith("Local login command: "):
-        line = "Local login command: <redacted>\n"
-    sys.stdout.write(line)
-    sys.stdout.flush()
-'
-}
-
 open_url() {
   local url="$1"
+  local opener_cmd=""
 
-  if command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "$url" >/dev/null 2>&1 && return 0
-  fi
-  if command -v gio >/dev/null 2>&1; then
-    gio open "$url" >/dev/null 2>&1 && return 0
-  fi
-  if command -v sensible-browser >/dev/null 2>&1; then
-    sensible-browser "$url" >/dev/null 2>&1 && return 0
-  fi
+  opener_cmd="$(resolve_url_opener_command)" || return 1
+  open_url_with_command "$opener_cmd" "$url"
+}
+
+resolve_url_opener_command() {
+  local opener_cmd=""
+
+  for opener_cmd in xdg-open gio sensible-browser; do
+    if command -v "$opener_cmd" >/dev/null 2>&1; then
+      printf '%s\n' "$opener_cmd"
+      return 0
+    fi
+  done
 
   return 1
+}
+
+open_url_with_command() {
+  local opener_cmd="$1"
+  local url="$2"
+
+  case "$opener_cmd" in
+    gio)
+      gio open "$url" >/dev/null 2>&1
+      ;;
+    *)
+      "$opener_cmd" "$url" >/dev/null 2>&1
+      ;;
+  esac
+}
+
+launch_runtime_with_redacted_log() {
+  local runtime_cmd="$1"
+  local port="$2"
+  local supervisor_pid=""
+
+  nohup python3 - "$runtime_cmd" "$WEB_BIND" "$port" "$TOKEN_FILE" "$WEB_LOG" <<'PY' >/dev/null 2>&1 &
+import re
+import signal
+import subprocess
+import sys
+
+runtime_cmd, bind, port, token_file, web_log = sys.argv[1:]
+process = None
+
+
+def redact_line(line: str) -> str:
+    line = re.sub(r'token=[^"&\s]+', "token=<redacted>", line)
+    if line.startswith("Local login command: "):
+        return "Local login command: <redacted>\n"
+    return line
+
+
+def terminate_child() -> None:
+    global process
+    if process is None or process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=4)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def handle_signal(signum, _frame):
+    terminate_child()
+    raise SystemExit(128 + signum)
+
+
+for signum in (signal.SIGTERM, signal.SIGINT):
+    signal.signal(signum, handle_signal)
+
+cmd = [
+    runtime_cmd,
+    "web",
+    "--bind",
+    bind,
+    "--port",
+    port,
+    "--token-file",
+    token_file,
+]
+
+with open(web_log, "a", encoding="utf-8", buffering=1) as log_handle:
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+    )
+    assert process.stdout is not None
+    try:
+        for line in process.stdout:
+            log_handle.write(redact_line(line))
+    finally:
+        process.stdout.close()
+
+    raise SystemExit(process.wait())
+PY
+  supervisor_pid="$!"
+  printf '%s\n' "$supervisor_pid"
 }
 
 redact_url_for_display() {
@@ -802,15 +900,7 @@ ensure_server() {
   fi
 
   log "Starting ${PROVIDER} runtime on ${WEB_BIND}:${port}"
-  nohup "$runtime_cmd" web \
-    --bind "$WEB_BIND" \
-    --port "$port" \
-    --token-file "$TOKEN_FILE" \
-    9>&- > >(
-      exec 9>&-
-      redact_stream >>"$WEB_LOG"
-    ) 2>&1 &
-  started_pid="$!"
+  started_pid="$(launch_runtime_with_redacted_log "$runtime_cmd" "$port")"
 
   rm -f "$PID_FILE"
   printf '%s\n' "$port" >"$PORT_FILE"
@@ -845,6 +935,10 @@ ensure_server() {
   done
 
   log "Web runtime failed to become healthy"
+  if pid_is_live "$started_pid"; then
+    kill "$started_pid" >/dev/null 2>&1 || true
+    wait "$started_pid" 2>/dev/null || true
+  fi
   notify_failure "The local runtime did not start. Check ${WEB_LOG}."
   printf 'The local runtime did not start. Check %s\n' "$WEB_LOG" >&2
   stop_server_locked || true
@@ -898,8 +992,23 @@ focus_existing_window() {
 launch_app_window() {
   local browser_cmd=""
   local browser_status=0
+  local opener_cmd=""
   local port=""
   local url=""
+
+  browser_cmd="$(resolve_browser_command)" || browser_status=$?
+  if [ "$browser_status" -eq 2 ]; then
+    return 1
+  fi
+
+  if [ -z "$browser_cmd" ]; then
+    opener_cmd="$(resolve_url_opener_command)" || true
+    if [ -z "$opener_cmd" ]; then
+      notify_failure "No supported browser or URL opener was found."
+      printf 'No supported browser or URL opener was found.\n' >&2
+      return 1
+    fi
+  fi
 
   ensure_server
   port="$ENSURE_SERVER_PORT"
@@ -910,14 +1019,9 @@ launch_app_window() {
     return 0
   fi
 
-  browser_cmd="$(resolve_browser_command)" || browser_status=$?
-  if [ "$browser_status" -eq 2 ]; then
-    return 1
-  fi
-
   if [ -z "$browser_cmd" ]; then
-    log "No supported app browser found; falling back to URL open"
-    if ! open_url "$url"; then
+    log "No supported app browser found; opening URL via ${opener_cmd}"
+    if ! open_url_with_command "$opener_cmd" "$url"; then
       report_browser_open_failure "$url"
       return 1
     fi

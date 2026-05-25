@@ -42,6 +42,17 @@ The current repository is not just a design memo. It already ships:
 - smoke tests and CI
 - Electron-first repo structure and migration docs
 
+## Release status
+
+| Capability | Status |
+| --- | --- |
+| Browser fallback launcher | Working preview |
+| Repo-owned Electron dogfood wrapper | Working local-only |
+| Minimum payload intake | Working preview |
+| Self-contained Electron desktop package | Not yet |
+| Updater | Not yet |
+| Stable v1 release | Not yet |
+
 ## What it is not claiming
 
 This repository is not yet:
@@ -100,6 +111,43 @@ See [providers/contract.md](providers/contract.md), [providers/browser-shell.md]
 
 ## Quick start
 
+### Choose a path
+
+| Path | Who it is for | Works from this repo alone? | Current reality |
+| --- | --- | --- | --- |
+| Browser fallback | People who want the current fully repo-owned path | Yes | Lowest-fidelity UX, but easiest to run from this repo today |
+| Electron developer path | People who want the real desktop feel | No | Best UX, but currently requires an existing local desktop payload root |
+
+### What you need locally
+
+Browser fallback:
+
+- `codex-app-linux` on `PATH`, or `CODEX_UBUNTU_APP_LINUX_CMD` set
+- a supported browser on `PATH`, or `CODEX_UBUNTU_BROWSER` set
+- `python3`, `curl`, and `xdg-utils`
+
+Electron developer path:
+
+- a local desktop payload root containing at least:
+  - `start.sh`
+  - `version`
+  - `resources/app.asar`
+  - `resources/codex-linux-build-info.json`
+  - `.codex-linux/codex-desktop.png`
+- whatever runtime expectations that payload already has
+
+By default the repo-owned Electron wrapper looks for:
+
+```text
+$HOME/codex-desktop-linux/codex-app
+```
+
+Override it explicitly with:
+
+```bash
+CODEX_UBUNTU_ELECTRON_APP_ROOT=/path/to/codex-app
+```
+
 ### Electron dogfood quick start
 
 If you want the current `Codex Desktop` launch chain to come from this repo while still using the working Electron payload already on your machine:
@@ -123,15 +171,25 @@ That writes:
 - `electron/vendor/current/`
 - `electron/manifest/current.local.json`
 
+### Electron developer install
+
+For a fresh machine or another developer, the current Electron path is:
+
+1. build or obtain a local desktop payload root
+2. point the repo at it if it is not at `$HOME/codex-desktop-linux/codex-app`
+3. import the minimum payload slice for provenance and patch planning
+4. install the repo-owned Electron launcher
+
+Example:
+
+```bash
+make import-electron-payload SOURCE_ROOT=/path/to/codex-app
+make install-electron-local
+```
+
 ### Fallback launcher quick start
 
 If you want the current runnable implementation from this repo today, that is still the fallback launcher.
-
-The fallback launcher expects:
-
-- `codex-app-linux` on `PATH`, or `CODEX_UBUNTU_APP_LINUX_CMD` set
-- a supported browser on `PATH`, or `CODEX_UBUNTU_BROWSER` set
-- `python3`, `curl`, and `xdg-utils`
 
 Strict behavior:
 
@@ -157,6 +215,20 @@ codex-ubuntu
 ```
 
 Or open `Codex Ubuntu (Unofficial)` from the Ubuntu app grid.
+
+### What this repo does not ship yet
+
+Today this repository does **not** provide:
+
+- a vendored Electron payload in git
+- a one-command self-contained Electron desktop install for strangers
+- a direct upstream-DMG-to-local-payload build flow inside this repo
+
+So the current Electron story is:
+
+- this repo owns the launcher and intake workflow
+- you provide or build the local desktop payload root
+- the repo then launches and tracks that payload cleanly
 
 ## Architecture at a glance
 
