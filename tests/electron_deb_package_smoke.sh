@@ -51,7 +51,7 @@ assert_contains "$contents_file" "./usr/share/man/man1/codex-desktop-rollback.1.
 assert_contains "$control_file" "Package: codex-desktop"
 assert_contains "$control_file" "Architecture: all"
 assert_contains "$control_file" "Maintainer: Minh Vu <vuhoangminh97@gmail.com>"
-assert_contains "$control_file" "Depends: curl, g++, git, make, python3, tar, unzip, xdg-utils"
+assert_contains "$control_file" "Depends: curl, g++, git, make, python3, unzip, xdg-utils"
 assert_contains "$control_file" "This package installs the Electron-first desktop launcher and local build"
 assert_contains "$control_file" "Run codex-desktop-bootstrap after install to build and install the local"
 

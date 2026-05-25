@@ -3,4 +3,4 @@ codex-desktop (0.2.1) unstable; urgency=medium
   * ship the Electron launcher and bootstrap tooling as a separate preview
     package
 
- -- Minh Vu <vuhoangminh97@gmail.com>  Sun, 25 May 2026 12:00:00 +0200
+ -- Minh Vu <vuhoangminh97@gmail.com>  Mon, 25 May 2026 12:00:00 +0200

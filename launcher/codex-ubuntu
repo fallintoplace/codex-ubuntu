@@ -918,7 +918,7 @@ ensure_server() {
 
   for _ in $(seq 1 60); do
     if server_healthy "$port"; then
-      if ! capture_runtime_fingerprint_with_retry; then
+      if ! capture_runtime_fingerprint_with_retry 20 0.1; then
         local unverified_pid=""
         unverified_pid="$(runtime_pid 2>/dev/null || true)"
         log "Web runtime became healthy but could not be fingerprinted"
