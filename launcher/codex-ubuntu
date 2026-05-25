@@ -7,6 +7,8 @@ APP_VERSION="${CODEX_UBUNTU_VERSION:-0.1.0}"
 PROVIDER="${CODEX_UBUNTU_PROVIDER:-browser-shell}"
 WEB_BIND="${CODEX_UBUNTU_BIND:-127.0.0.1}"
 DEFAULT_WEB_PORT="${CODEX_UBUNTU_PORT:-8080}"
+ALLOW_NON_LOOPBACK="${CODEX_UBUNTU_ALLOW_NON_LOOPBACK:-0}"
+DEBUG_SHOW_TOKEN_URL="${CODEX_UBUNTU_DEBUG_SHOW_TOKEN_URL:-0}"
 
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/${APP_ID}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/${APP_ID}"
@@ -105,6 +107,42 @@ executable_candidate() {
   printf '%s\n' "$candidate"
 }
 
+command_candidate() {
+  local candidate="$1"
+  [ -n "$candidate" ] || return 1
+  command -v "$candidate" >/dev/null 2>&1 || return 1
+  command -v "$candidate"
+}
+
+validate_loopback_bind() {
+  case "$WEB_BIND" in
+    127.0.0.1|localhost)
+      return 0
+      ;;
+    *)
+      if [ "$ALLOW_NON_LOOPBACK" = "1" ]; then
+        return 0
+      fi
+      printf 'Refusing non-loopback bind %s without CODEX_UBUNTU_ALLOW_NON_LOOPBACK=1\n' "$WEB_BIND" >&2
+      return 1
+      ;;
+  esac
+}
+
+validate_port_number() {
+  local port="$1"
+
+  is_unsigned_int "$port" || {
+    printf 'Invalid port: %s\n' "$port" >&2
+    return 1
+  }
+
+  if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+    printf 'Port out of range: %s\n' "$port" >&2
+    return 1
+  fi
+}
+
 search_nvm_tool() {
   local name="$1"
   local latest=""
@@ -127,9 +165,19 @@ resolve_tool() {
   local candidate=""
   local npm_prefix=""
 
-  if executable_candidate "$env_value" >/dev/null 2>&1; then
-    executable_candidate "$env_value"
-    return 0
+  if [ -n "$env_value" ]; then
+    if executable_candidate "$env_value" >/dev/null 2>&1; then
+      executable_candidate "$env_value"
+      return 0
+    fi
+
+    if command_candidate "$env_value" >/dev/null 2>&1; then
+      command_candidate "$env_value"
+      return 0
+    fi
+
+    printf '%s is set to %s, but that runtime command could not be executed.\n' "$env_name" "$env_value" >&2
+    return 2
   fi
 
   if command -v "$fallback_name" >/dev/null 2>&1; then
@@ -177,9 +225,19 @@ resolve_browser_command() {
   local env_value="${CODEX_UBUNTU_BROWSER:-}"
   local candidate=""
 
-  if executable_candidate "$env_value" >/dev/null 2>&1; then
-    executable_candidate "$env_value"
-    return 0
+  if [ -n "$env_value" ]; then
+    if executable_candidate "$env_value" >/dev/null 2>&1; then
+      executable_candidate "$env_value"
+      return 0
+    fi
+
+    if command_candidate "$env_value" >/dev/null 2>&1; then
+      command_candidate "$env_value"
+      return 0
+    fi
+
+    printf 'CODEX_UBUNTU_BROWSER is set to %s, but that browser command could not be executed.\n' "$env_value" >&2
+    return 2
   fi
 
   for candidate in \
@@ -233,6 +291,10 @@ runtime_port() {
   runtime_field port
 }
 
+runtime_bind() {
+  runtime_field bind
+}
+
 saved_port() {
   [ -f "$PORT_FILE" ] || return 1
   tr -d '[:space:]' <"$PORT_FILE"
@@ -277,6 +339,7 @@ if token_file != expected_token_file:
 
 cmdline_path = pathlib.Path(f"/proc/{pid}/cmdline")
 exe_path = pathlib.Path(f"/proc/{pid}/exe")
+stat_path = pathlib.Path(f"/proc/{pid}/stat")
 
 try:
     raw = cmdline_path.read_bytes()
@@ -306,9 +369,16 @@ try:
 except OSError:
     proc_exe = ""
 
+try:
+    stat_fields = stat_path.read_text(encoding="utf-8").split()
+    proc_starttime = int(stat_fields[21])
+except Exception:
+    raise SystemExit(1)
+
 fingerprint = {
     "provider": provider,
     "pidAtCapture": int(pid),
+    "procStarttimeAtCapture": proc_starttime,
     "bind": expected_bind,
     "port": int(port),
     "tokenFile": expected_token_file,
@@ -319,6 +389,26 @@ fingerprint = {
 
 fingerprint_path.write_text(json.dumps(fingerprint) + "\n", encoding="utf-8")
 PY
+}
+
+capture_runtime_fingerprint_with_retry() {
+  local attempts="${1:-20}"
+  local sleep_seconds="${2:-0.1}"
+  local attempt=1
+
+  while [ "$attempt" -le "$attempts" ]; do
+    if capture_runtime_fingerprint; then
+      return 0
+    fi
+
+    if [ "$attempt" -lt "$attempts" ]; then
+      sleep "$sleep_seconds"
+    fi
+
+    attempt=$((attempt + 1))
+  done
+
+  return 1
 }
 
 process_matches_runtime_metadata() {
@@ -393,6 +483,7 @@ import sys
 pid, fingerprint_path, provider = sys.argv[1:]
 cmdline_path = pathlib.Path(f"/proc/{pid}/cmdline")
 exe_path = pathlib.Path(f"/proc/{pid}/exe")
+stat_path = pathlib.Path(f"/proc/{pid}/stat")
 
 try:
     fingerprint = json.loads(pathlib.Path(fingerprint_path).read_text(encoding="utf-8"))
@@ -400,6 +491,8 @@ except Exception:
     raise SystemExit(1)
 
 if fingerprint.get("provider") != provider:
+    raise SystemExit(1)
+if str(fingerprint.get("pidAtCapture")) != pid:
     raise SystemExit(1)
 
 try:
@@ -417,6 +510,15 @@ except OSError:
 
 fingerprint_exe = fingerprint.get("procExe", "")
 if fingerprint_exe and proc_exe != fingerprint_exe:
+    raise SystemExit(1)
+
+try:
+    stat_fields = stat_path.read_text(encoding="utf-8").split()
+    proc_starttime = int(stat_fields[21])
+except Exception:
+    raise SystemExit(1)
+
+if proc_starttime != fingerprint.get("procStarttimeAtCapture"):
     raise SystemExit(1)
 
 raise SystemExit(0)
@@ -505,7 +607,10 @@ PY
 
 server_healthy() {
   local port="$1"
-  curl -fsS "http://${WEB_BIND}:${port}/__webstrapper/healthz" >/dev/null 2>&1
+  curl -fsS \
+    --connect-timeout 0.5 \
+    --max-time 1 \
+    "http://${WEB_BIND}:${port}/__webstrapper/healthz" >/dev/null 2>&1
 }
 
 pick_port() {
@@ -531,16 +636,17 @@ PY
 }
 
 redact_stream() {
-  python3 - <<'PY'
+  python3 -c '
 import re
 import sys
 
 for line in sys.stdin:
-    line = re.sub(r'token=[^"&\s]+', 'token=<redacted>', line)
+    line = re.sub(r"token=[^\"&\s]+", "token=<redacted>", line)
     if line.startswith("Local login command: "):
         line = "Local login command: <redacted>\n"
     sys.stdout.write(line)
-PY
+    sys.stdout.flush()
+'
 }
 
 open_url() {
@@ -557,6 +663,45 @@ open_url() {
   fi
 
   return 1
+}
+
+redact_url_for_display() {
+  local url="$1"
+
+  python3 - "$url" <<'PY'
+import sys
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+url = sys.argv[1]
+parts = urlsplit(url)
+query = []
+
+for key, value in parse_qsl(parts.query, keep_blank_values=True):
+    if key == "token":
+        query.append((key, "<redacted>"))
+    else:
+        query.append((key, value))
+
+print(urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)))
+PY
+}
+
+report_browser_open_failure() {
+  local url="$1"
+  local display_url=""
+
+  if [ "$DEBUG_SHOW_TOKEN_URL" = "1" ]; then
+    display_url="$url"
+  else
+    display_url="$(redact_url_for_display "$url")"
+  fi
+
+  notify_failure "Could not open your browser. Fix browser configuration and try again."
+  printf 'Could not open your browser.\n' >&2
+  printf 'Manual URL: %s\n' "$display_url" >&2
+  if [ "$DEBUG_SHOW_TOKEN_URL" != "1" ]; then
+    printf 'Set CODEX_UBUNTU_DEBUG_SHOW_TOKEN_URL=1 if you need the live token URL for recovery.\n' >&2
+  fi
 }
 
 cleanup_stale_state() {
@@ -581,8 +726,18 @@ cleanup_stale_state() {
 stop_server() {
   local pid=""
   local port=""
+  local status=0
 
   with_lock
+  stop_server_locked || status=$?
+  release_lock
+  return "$status"
+}
+
+stop_server_locked() {
+  local pid=""
+  local port=""
+
   pid="$(verified_runtime_pid 2>/dev/null || true)"
   port="$(verified_runtime_port 2>/dev/null || runtime_port 2>/dev/null || saved_port 2>/dev/null || true)"
 
@@ -592,12 +747,10 @@ stop_server() {
     log "Refusing to stop healthy web runtime at http://${WEB_BIND}:${port}/ because the owning process could not be verified"
     printf 'Refusing to stop healthy web runtime at http://%s:%s/ because the owning process could not be verified.\n' "$WEB_BIND" "$port" >&2
     clear_launcher_state
-    release_lock
     return 1
   fi
 
   clear_launcher_state
-  release_lock
 }
 
 ensure_server() {
@@ -609,6 +762,8 @@ ensure_server() {
 
   ENSURE_SERVER_PORT=""
   ENSURE_SERVER_ACTION=""
+  validate_loopback_bind
+  validate_port_number "$DEFAULT_WEB_PORT"
   with_lock
   ensure_dirs
   cleanup_stale_state
@@ -621,6 +776,9 @@ ensure_server() {
 
   pid="$(verified_runtime_pid 2>/dev/null || true)"
   port="$(verified_runtime_port 2>/dev/null || runtime_port 2>/dev/null || saved_port 2>/dev/null || true)"
+  if [ -n "$port" ]; then
+    validate_port_number "$port" >/dev/null 2>&1 || port=""
+  fi
 
   if [ -n "$port" ] && is_unsigned_int "$port" && server_healthy "$port"; then
     sync_state_from_runtime || true
@@ -632,7 +790,7 @@ ensure_server() {
   fi
 
   if [ -n "$pid" ] && pid_is_live "$pid"; then
-    stop_server
+    stop_server_locked
   fi
 
   if [ -n "$port" ] && is_unsigned_int "$port" && port_is_listening "$port" && ! server_healthy "$port"; then
@@ -659,7 +817,7 @@ ensure_server() {
 
   for _ in $(seq 1 60); do
     if server_healthy "$port"; then
-      if ! capture_runtime_fingerprint; then
+      if ! capture_runtime_fingerprint_with_retry; then
         local unverified_pid=""
         unverified_pid="$(runtime_pid 2>/dev/null || true)"
         log "Web runtime became healthy but could not be fingerprinted"
@@ -689,7 +847,7 @@ ensure_server() {
   log "Web runtime failed to become healthy"
   notify_failure "The local runtime did not start. Check ${WEB_LOG}."
   printf 'The local runtime did not start. Check %s\n' "$WEB_LOG" >&2
-  stop_server || true
+  stop_server_locked || true
   release_lock
   return 1
 }
@@ -738,6 +896,7 @@ focus_existing_window() {
 
 launch_app_window() {
   local browser_cmd=""
+  local browser_status=0
   local port=""
   local url=""
 
@@ -750,12 +909,15 @@ launch_app_window() {
     return 0
   fi
 
-  browser_cmd="$(resolve_browser_command || true)"
+  browser_cmd="$(resolve_browser_command)" || browser_status=$?
+  if [ "$browser_status" -eq 2 ]; then
+    return 1
+  fi
+
   if [ -z "$browser_cmd" ]; then
     log "No supported app browser found; falling back to URL open"
     if ! open_url "$url"; then
-      notify_failure "Could not open your browser. Open ${url} manually."
-      printf 'Open this URL manually: %s\n' "$url" >&2
+      report_browser_open_failure "$url"
       return 1
     fi
     return 0
@@ -781,8 +943,7 @@ launch_browser_mode() {
   log "Opening browser tab"
 
   if ! open_url "$url"; then
-    notify_failure "Could not open your browser. Open ${url} manually."
-    printf 'Open this URL manually: %s\n' "$url" >&2
+    report_browser_open_failure "$url"
     return 1
   fi
 }
@@ -793,6 +954,8 @@ status() {
   local port=""
   local pid=""
 
+  validate_loopback_bind
+  validate_port_number "$DEFAULT_WEB_PORT"
   runtime_cmd="$(resolve_runtime_command 2>/dev/null || true)"
   browser_cmd="$(resolve_browser_command 2>/dev/null || true)"
   port="$(verified_runtime_port 2>/dev/null || runtime_port 2>/dev/null || saved_port 2>/dev/null || true)"
@@ -822,6 +985,8 @@ doctor() {
   printf 'runtime_fingerprint_file=%s\n' "$RUNTIME_FINGERPRINT_FILE"
   printf 'launcher_log=%s\n' "$LAUNCHER_LOG"
   printf 'web_log=%s\n' "$WEB_LOG"
+  printf 'allow_non_loopback=%s\n' "$ALLOW_NON_LOOPBACK"
+  printf 'debug_show_token_url=%s\n' "$DEBUG_SHOW_TOKEN_URL"
 }
 
 case "${1:-}" in

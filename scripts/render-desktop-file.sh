@@ -13,7 +13,17 @@ EXEC_PATH="$1"
 ICON_NAME="$2"
 OUTPUT_PATH="$3"
 
-sed \
-  -e "s|__EXEC__|${EXEC_PATH}|g" \
-  -e "s|__ICON__|${ICON_NAME}|g" \
-  "$TEMPLATE" >"$OUTPUT_PATH"
+python3 - "$TEMPLATE" "$EXEC_PATH" "$ICON_NAME" "$OUTPUT_PATH" <<'PY'
+from pathlib import Path
+import sys
+
+template_path = Path(sys.argv[1])
+exec_path = sys.argv[2]
+icon_name = sys.argv[3]
+output_path = Path(sys.argv[4])
+
+contents = template_path.read_text(encoding="utf-8")
+contents = contents.replace("__EXEC__", exec_path)
+contents = contents.replace("__ICON__", icon_name)
+output_path.write_text(contents, encoding="utf-8")
+PY

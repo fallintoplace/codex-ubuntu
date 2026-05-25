@@ -96,6 +96,11 @@ The current launcher expects:
 - a supported browser on `PATH`, or `CODEX_UBUNTU_BROWSER` set
 - `python3`, `curl`, and `xdg-utils`
 
+Strict behavior:
+
+- invalid explicit runtime or browser overrides fail loudly
+- non-loopback bind values require `CODEX_UBUNTU_ALLOW_NON_LOOPBACK=1`
+
 ### 2. Install locally
 
 ```bash
@@ -105,8 +110,8 @@ make install-local
 That installs:
 
 - `~/.local/bin/codex-ubuntu`
-- `~/.local/share/applications/codex-ubuntu.desktop`
-- `~/.local/share/icons/hicolor/scalable/apps/codex-ubuntu.svg`
+- `${XDG_DATA_HOME:-~/.local/share}/applications/codex-ubuntu.desktop`
+- `${XDG_DATA_HOME:-~/.local/share}/icons/hicolor/scalable/apps/codex-ubuntu.svg`
 
 ### 3. Launch
 

@@ -50,6 +50,13 @@ ${XDG_STATE_HOME:-$HOME/.local/state}/codex-ubuntu/runtime.fingerprint.json
 
 That fingerprint is required for later reuse and stop behavior. A merely healthy loopback service without a matching launcher fingerprint is treated as unverified and will not be reused.
 
+The current fingerprint includes:
+
+1. `pidAtCapture`
+2. `procStarttimeAtCapture`
+3. `cmdlineSha256`
+4. `procExe`
+
 ## Health check
 
 The launcher currently checks:
@@ -64,4 +71,5 @@ The launcher will only stop the runtime when:
 
 1. runtime metadata is valid
 2. `/proc/<pid>/cmdline` still matches the expected bind, port, and token file
-3. the live process still matches the stored launcher fingerprint
+3. `/proc/<pid>/stat` still matches the captured process start time
+4. the live process still matches the stored launcher fingerprint

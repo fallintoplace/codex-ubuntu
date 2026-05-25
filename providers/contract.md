@@ -41,9 +41,10 @@ The launcher must verify:
 1. the metadata file is parseable
 2. the PID is live
 3. the process command line matches the expected provider arguments
-4. the bind/port values match launcher expectations
-5. the token file matches when token auth is used
-6. the live process matches the last trusted launcher-managed provenance record
+4. the live process start time still matches the trusted process provenance
+5. the bind/port values match launcher expectations
+6. the token file matches when token auth is used
+7. the live process matches the last trusted launcher-managed provenance record
 
 If any of these checks fail, the launcher must not kill the process.
 

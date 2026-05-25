@@ -66,9 +66,10 @@ The launcher should require:
 
 1. validated structured runtime metadata
 2. matching process identity from `/proc/<pid>/cmdline`
-3. matching bind/port expectations
-4. matching token-file expectation when the provider supports token auth
-5. matching launcher-managed runtime provenance captured from a previously trusted launch
+3. matching process start time from `/proc/<pid>/stat`
+4. matching bind/port expectations
+5. matching token-file expectation when the provider supports token auth
+6. matching launcher-managed runtime provenance captured from a previously trusted launch
 
 If ownership cannot be proven, the launcher should refuse to kill the process.
 
@@ -80,6 +81,8 @@ The same rule applies to reuse. A healthy loopback service that cannot be tied b
 - avoid logging token-bearing URLs
 - avoid printing login commands with live tokens into persisted logs
 - prefer redacted auth hints in logs
+- fail loudly when an explicit runtime or browser override is invalid
+- refuse non-loopback bind values unless explicitly opted in
 
 ## Path policy
 
