@@ -20,9 +20,11 @@ jobs:
       - name: Install validation tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y desktop-file-utils
+          sudo apt-get install -y desktop-file-utils shellcheck shfmt
       - name: Make scripts executable
         run: chmod +x launcher/codex-ubuntu scripts/*.sh tests/*.sh tests/fixtures/*
+      - name: Lint shell scripts
+        run: make lint
       - name: Syntax checks
         run: make check
       - name: Smoke tests

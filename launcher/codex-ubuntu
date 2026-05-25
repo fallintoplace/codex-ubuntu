@@ -50,7 +50,7 @@ log() {
 notify_failure() {
   local message="$1"
   case "$DISABLE_NOTIFICATIONS" in
-    1|true|TRUE|yes|YES)
+    1 | true | TRUE | yes | YES)
       return 0
       ;;
   esac
@@ -107,7 +107,7 @@ clear_launcher_state() {
 
 is_unsigned_int() {
   case "${1:-}" in
-    ""|*[!0-9]*)
+    "" | *[!0-9]*)
       return 1
       ;;
     *)
@@ -132,7 +132,7 @@ command_candidate() {
 
 validate_loopback_bind() {
   case "$WEB_BIND" in
-    127.0.0.1|localhost)
+    127.0.0.1 | localhost)
       return 0
       ;;
     *)
@@ -206,8 +206,7 @@ resolve_tool() {
     "${HOME}/bin/${fallback_name}" \
     "/usr/local/bin/${fallback_name}" \
     "/usr/bin/${fallback_name}" \
-    "/snap/bin/${fallback_name}"
-  do
+    "/snap/bin/${fallback_name}"; do
     if executable_candidate "$candidate" >/dev/null 2>&1; then
       executable_candidate "$candidate"
       return 0
@@ -264,8 +263,7 @@ resolve_browser_command() {
     microsoft-edge \
     microsoft-edge-stable \
     vivaldi-stable \
-    vivaldi
-  do
+    vivaldi; do
     if command -v "$candidate" >/dev/null 2>&1; then
       command -v "$candidate"
       return 0
@@ -1121,10 +1119,10 @@ case "${1:-}" in
   --stop)
     stop_server
     ;;
-  --help|-h|help)
+  --help | -h | help)
     usage
     ;;
-  --version|-v|version)
+  --version | -v | version)
     printf '%s\n' "$APP_VERSION"
     ;;
   "")

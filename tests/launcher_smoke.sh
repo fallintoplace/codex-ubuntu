@@ -72,9 +72,9 @@ cleanup_test_artifacts() {
   for tmpdir in "${TEST_TMPDIRS[@]}"; do
     if [ -d "$tmpdir" ]; then
       XDG_CONFIG_HOME="${tmpdir}/config" \
-      XDG_CACHE_HOME="${tmpdir}/cache" \
-      XDG_STATE_HOME="${tmpdir}/state" \
-      run_launcher --stop >/dev/null 2>&1 || true
+        XDG_CACHE_HOME="${tmpdir}/cache" \
+        XDG_STATE_HOME="${tmpdir}/state" \
+        run_launcher --stop >/dev/null 2>&1 || true
       rm -rf "$tmpdir"
     fi
   done
@@ -94,7 +94,7 @@ read_runtime_field() {
   local runtime_file="$1"
   local field="$2"
 
-  python3 - <<'PY' "$runtime_file" "$field"
+  python3 - "$runtime_file" "$field" <<'PY'
 import json
 import sys
 
@@ -192,13 +192,13 @@ test_browser_launch_creates_verified_state() {
   requested_port="$(pick_test_port)"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
-  CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
-  CODEX_UBUNTU_PORT="$requested_port" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher
+    CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
+    CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
+    CODEX_UBUNTU_PORT="$requested_port" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   fingerprint_file="${tmpdir}/state/codex-ubuntu/runtime.fingerprint.json"
@@ -220,10 +220,10 @@ test_browser_launch_creates_verified_state() {
   assert_contains "$browser_log" "--app=http://127.0.0.1:${runtime_port}/__webstrapper/auth?token=fake-token"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --stop
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --stop
 }
 
 test_web_log_redacts_runtime_secrets() {
@@ -236,14 +236,14 @@ test_web_log_redacts_runtime_secrets() {
   requested_port="$(pick_test_port)"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
-  CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
-  CODEX_UBUNTU_TEST_RUNTIME_STDOUT_SECRET="runtime-secret-token" \
-  CODEX_UBUNTU_PORT="$requested_port" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher
+    CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
+    CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
+    CODEX_UBUNTU_TEST_RUNTIME_STDOUT_SECRET="runtime-secret-token" \
+    CODEX_UBUNTU_PORT="$requested_port" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher
 
   wait_for_file "$web_log" "web log was not created for redaction test"
   assert_contains "$web_log" "token=<redacted>"
@@ -251,10 +251,10 @@ test_web_log_redacts_runtime_secrets() {
   assert_not_contains "$web_log" "runtime-secret-token"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --stop
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --stop
 }
 
 test_stop_does_not_kill_unrelated_process() {
@@ -268,9 +268,9 @@ test_stop_does_not_kill_unrelated_process() {
   printf '%s\n' "$sleeper" >"${tmpdir}/state/codex-ubuntu/web.pid"
 
   XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --stop
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --stop
 
   if ! kill -0 "$sleeper" >/dev/null 2>&1; then
     printf 'stop killed unrelated process\n' >&2
@@ -289,11 +289,11 @@ test_stop_refuses_runtime_with_tampered_fingerprint() {
   requested_port="$(pick_test_port)"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  CODEX_UBUNTU_PORT="$requested_port" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --browser >/dev/null 2>&1 || true
+    CODEX_UBUNTU_PORT="$requested_port" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --browser >/dev/null 2>&1 || true
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   fingerprint_file="${tmpdir}/state/codex-ubuntu/runtime.fingerprint.json"
@@ -329,11 +329,11 @@ test_stop_verified_runtime_removes_state() {
   requested_port="$(pick_test_port)"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  CODEX_UBUNTU_PORT="$requested_port" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --browser >/dev/null 2>&1 || true
+    CODEX_UBUNTU_PORT="$requested_port" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --browser >/dev/null 2>&1 || true
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   wait_for_file "$runtime_file" "runtime metadata file was not created for stop test"
@@ -341,9 +341,9 @@ test_stop_verified_runtime_removes_state() {
   runtime_pid="$(read_runtime_field "$runtime_file" pid)"
 
   XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --stop
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --stop
 
   if kill -0 "$runtime_pid" >/dev/null 2>&1; then
     printf 'verified runtime is still alive after stop\n' >&2
@@ -372,13 +372,13 @@ test_hanging_health_server_is_timed_out_and_not_reused() {
   sleep 0.2
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
-  CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
-  CODEX_UBUNTU_PORT="$requested_port" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher
+    CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
+    CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
+    CODEX_UBUNTU_PORT="$requested_port" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   wait_for_file "$runtime_file" "runtime metadata file was not created for hanging health server test"
@@ -388,10 +388,10 @@ test_hanging_health_server_is_timed_out_and_not_reused() {
   assert_contains "$browser_log" "--app=http://127.0.0.1:${runtime_port}/__webstrapper/auth?token=fake-token"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --stop
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --stop
 }
 
 test_unverified_healthy_server_is_not_reused() {
@@ -417,13 +417,13 @@ test_unverified_healthy_server_is_not_reused() {
   done
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
-  CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
-  CODEX_UBUNTU_PORT="$requested_port" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher
+    CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
+    CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
+    CODEX_UBUNTU_PORT="$requested_port" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   wait_for_file "$runtime_file" "runtime metadata file was not created for unverified server test"
@@ -436,10 +436,10 @@ test_unverified_healthy_server_is_not_reused() {
   assert_not_contains "$browser_log" "--app=http://127.0.0.1:${requested_port}/__webstrapper/auth?token=stale-secret-token"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --stop
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --stop
 }
 
 test_invalid_runtime_override_fails_loudly() {
@@ -523,13 +523,13 @@ test_compatible_runtime_is_stoppable() {
   chmod +x "$compatible_runtime"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$compatible_runtime" \
-  CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
-  CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
-  CODEX_UBUNTU_PORT="$requested_port" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher
+    CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
+    CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
+    CODEX_UBUNTU_PORT="$requested_port" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   wait_for_file "$runtime_file" "runtime metadata file was not created for compatible runtime test"
@@ -537,10 +537,10 @@ test_compatible_runtime_is_stoppable() {
   runtime_pid="$(read_runtime_field "$runtime_file" pid)"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$compatible_runtime" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --stop
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --stop
 
   if kill -0 "$runtime_pid" >/dev/null 2>&1; then
     printf 'compatible runtime is still alive after stop\n' >&2
@@ -647,40 +647,40 @@ test_fresh_runtime_relaunches_even_if_window_exists() {
   requested_port_two="$(pick_test_port)"
 
   PATH="${FAKE_XDOTOOL_DIR}:$PATH" \
-  CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
-  CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
-  CODEX_UBUNTU_TEST_XDOTOOL_WINDOW_ID="4242" \
-  CODEX_UBUNTU_PORT="$requested_port_one" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher
+    CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
+    CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
+    CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
+    CODEX_UBUNTU_TEST_XDOTOOL_WINDOW_ID="4242" \
+    CODEX_UBUNTU_PORT="$requested_port_one" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher
 
   XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --stop
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --stop
 
   PATH="${FAKE_XDOTOOL_DIR}:$PATH" \
-  CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
-  CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
-  CODEX_UBUNTU_TEST_XDOTOOL_WINDOW_ID="4242" \
-  CODEX_UBUNTU_PORT="$requested_port_two" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher
+    CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
+    CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
+    CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
+    CODEX_UBUNTU_TEST_XDOTOOL_WINDOW_ID="4242" \
+    CODEX_UBUNTU_PORT="$requested_port_two" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher
 
   assert_eq "2" "$(wc -l <"$browser_log" | tr -d '[:space:]')" "fresh runtime should relaunch browser even if a window exists"
   assert_contains "$browser_log" "--app=http://127.0.0.1:${requested_port_one}/__webstrapper/auth?token=fake-token"
   assert_contains "$browser_log" "--app=http://127.0.0.1:${requested_port_two}/__webstrapper/auth?token=fake-token"
 
   XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --stop
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --stop
 }
 
 test_retries_fingerprint_capture_after_health() {
@@ -692,14 +692,14 @@ test_retries_fingerprint_capture_after_health() {
   requested_port="$(pick_test_port)"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
-  CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
-  CODEX_UBUNTU_TEST_RUNTIME_METADATA_DELAY_MS=500 \
-  CODEX_UBUNTU_PORT="$requested_port" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher
+    CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
+    CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
+    CODEX_UBUNTU_TEST_RUNTIME_METADATA_DELAY_MS=500 \
+    CODEX_UBUNTU_PORT="$requested_port" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher
 
   runtime_file="${tmpdir}/state/codex-ubuntu/token.runtime"
   fingerprint_file="${tmpdir}/state/codex-ubuntu/runtime.fingerprint.json"
@@ -710,10 +710,10 @@ test_retries_fingerprint_capture_after_health() {
   assert_contains "$browser_log" "--app=http://127.0.0.1:${runtime_port}/__webstrapper/auth?token=fake-token"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --stop
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --stop
 }
 
 test_restart_keeps_outer_lock_during_verified_stop() {
@@ -731,8 +731,8 @@ test_restart_keeps_outer_lock_during_verified_stop() {
   mkdir -p "${tmpdir}/state/codex-ubuntu" "${tmpdir}/cache" "${tmpdir}/config"
 
   CODEX_UBUNTU_TEST_HEALTH_MODE=unhealthy \
-  CODEX_UBUNTU_TEST_START_LOG="$start_log" \
-  "$FAKE_RUNTIME" web \
+    CODEX_UBUNTU_TEST_START_LOG="$start_log" \
+    "$FAKE_RUNTIME" web \
     --bind 127.0.0.1 \
     --port "$requested_port" \
     --token-file "$token_file" >/dev/null 2>&1 &
@@ -741,29 +741,29 @@ test_restart_keeps_outer_lock_during_verified_stop() {
   wait_for_file "$runtime_file" "stale verified runtime metadata file was not created"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
-  CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
-  CODEX_UBUNTU_TEST_START_LOG="$start_log" \
-  CODEX_UBUNTU_TEST_HEALTH_DELAY_MS=1500 \
-  CODEX_UBUNTU_PORT="$requested_port" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --browser >"$launcher_one_log" 2>&1 &
+    CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
+    CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
+    CODEX_UBUNTU_TEST_START_LOG="$start_log" \
+    CODEX_UBUNTU_TEST_HEALTH_DELAY_MS=1500 \
+    CODEX_UBUNTU_PORT="$requested_port" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --browser >"$launcher_one_log" 2>&1 &
   launcher_one="$!"
 
   sleep 0.1
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
-  CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
-  CODEX_UBUNTU_TEST_START_LOG="$start_log" \
-  CODEX_UBUNTU_TEST_HEALTH_DELAY_MS=1500 \
-  CODEX_UBUNTU_PORT="$requested_port" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --browser >"$launcher_two_log" 2>&1 &
+    CODEX_UBUNTU_BROWSER="$FAKE_BROWSER" \
+    CODEX_UBUNTU_TEST_BROWSER_LOG="$browser_log" \
+    CODEX_UBUNTU_TEST_START_LOG="$start_log" \
+    CODEX_UBUNTU_TEST_HEALTH_DELAY_MS=1500 \
+    CODEX_UBUNTU_PORT="$requested_port" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --browser >"$launcher_two_log" 2>&1 &
   launcher_two="$!"
 
   if wait_for_background_result "$launcher_one" "$launcher_one_log" "first launcher"; then
@@ -783,10 +783,10 @@ test_restart_keeps_outer_lock_during_verified_stop() {
   assert_eq "2" "$(wc -l <"$start_log" | tr -d '[:space:]')" "only one replacement runtime should start while the outer lock is held"
 
   CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  run_launcher --stop
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --stop
 }
 
 chmod +x \

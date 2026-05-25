@@ -86,11 +86,11 @@ assert_file /usr/share/applications/codex-desktop.desktop
 
 stderr_file="${TEST_HOME}/codex-desktop.err"
 HOME="${TEST_HOME}/home" \
-XDG_CONFIG_HOME="${TEST_HOME}/config" \
-XDG_CACHE_HOME="${TEST_HOME}/cache" \
-XDG_DATA_HOME="${TEST_HOME}/data" \
-CODEX_UBUNTU_DISABLE_NOTIFICATIONS=1 \
-/usr/bin/codex-desktop >/dev/null 2>"$stderr_file" || true
+  XDG_CONFIG_HOME="${TEST_HOME}/config" \
+  XDG_CACHE_HOME="${TEST_HOME}/cache" \
+  XDG_DATA_HOME="${TEST_HOME}/data" \
+  CODEX_UBUNTU_DISABLE_NOTIFICATIONS=1 \
+  /usr/bin/codex-desktop >/dev/null 2>"$stderr_file" || true
 assert_contains "$stderr_file" "Run codex-desktop-bootstrap to build and install the local desktop payload."
 
 /usr/bin/codex-desktop-bootstrap --help >/dev/null

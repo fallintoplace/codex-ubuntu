@@ -3,7 +3,6 @@ set -euo pipefail
 umask 077
 
 DISPLAY_NAME="Codex Desktop"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/codex-ubuntu"
 CONFIG_FILE="${CONFIG_DIR}/electron.env"
 LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/codex-ubuntu"
@@ -22,7 +21,7 @@ log() {
 notify_failure() {
   local message="$1"
   case "$DISABLE_NOTIFICATIONS" in
-    1|true|TRUE|yes|YES)
+    1 | true | TRUE | yes | YES)
       return 0
       ;;
   esac
@@ -41,7 +40,8 @@ load_config_file() {
 
   chmod 600 "$CONFIG_FILE" >/dev/null 2>&1 || true
 
-  if ! config_output="$(python3 - "$CONFIG_FILE" <<'PY'
+  if ! config_output="$(
+    python3 - "$CONFIG_FILE" <<'PY'
 from pathlib import Path
 import shlex
 import sys
@@ -99,7 +99,7 @@ for line_number, raw_line in enumerate(
 
     print(f"{key}={value}")
 PY
-)"; then
+  )"; then
     return 1
   fi
 
@@ -169,8 +169,7 @@ resolve_app_root() {
     "${HOME}/.local/opt/codex-ubuntu/codex-app" \
     "${HOME}/codex-desktop-linux/codex-app" \
     "${HOME}/.local/opt/codex-desktop-linux/codex-app" \
-    "${HOME}/.local/opt/codex-desktop-linux/current/codex-app"
-  do
+    "${HOME}/.local/opt/codex-desktop-linux/current/codex-app"; do
     if [ -x "${candidate}/start.sh" ]; then
       printf '%s\n' "$candidate"
       return 0

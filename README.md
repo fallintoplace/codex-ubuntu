@@ -128,7 +128,7 @@ See [providers/contract.md](providers/contract.md), [providers/browser-shell.md]
 | Local Electron install | Yes | `make install-electron-local` swaps the active desktop launcher to repo code with rollback preserved |
 | Debian package build | Yes | Today this packages the fallback preview utility, not `Codex Desktop` |
 | Electron bootstrap package | Yes | `make build-electron-deb` packages the Electron launcher and bootstrap tooling |
-| CI | Yes | Syntax, smoke tests, packaging |
+| CI | Yes | Lint, syntax, smoke tests, packaging |
 | Desktop-payload provider | Not yet | Main implementation target |
 | App Server provider | Not yet | Optional future provider |
 | Updater | Not yet | Deliberately deferred |
@@ -313,6 +313,17 @@ codex-ubuntu
 ```
 
 Or open `Codex Ubuntu Fallback` from the Ubuntu app grid.
+
+## Local validation
+
+Useful repo checks:
+
+```bash
+make lint
+make test
+make build-deb
+make build-electron-deb
+```
 
 ### What this repo does not ship yet
 

@@ -89,7 +89,7 @@ parse_args() {
         REQUIRED_DMG_SHA256="$2"
         shift
         ;;
-      -h|--help)
+      -h | --help)
         usage
         exit 0
         ;;
@@ -159,8 +159,7 @@ verify_stage_output() {
     "${STAGE_APP_ROOT}/electron" \
     "${STAGE_APP_ROOT}/resources/app.asar" \
     "${STAGE_APP_ROOT}/resources/codex-linux-build-info.json" \
-    "${STAGE_APP_ROOT}/.codex-linux/codex-desktop.png"
-  do
+    "${STAGE_APP_ROOT}/.codex-linux/codex-desktop.png"; do
     if [ ! -e "$required_path" ]; then
       printf 'Expected staged output is missing: %s\n' "$required_path" >&2
       exit 1
@@ -244,9 +243,9 @@ run_reference_builder() {
 
   log "Building staged Electron app at ${STAGE_APP_ROOT}"
   CODEX_INSTALL_ROOT="$STAGE_ROOT" \
-  CODEX_INSTALL_DIR="$STAGE_APP_ROOT" \
-  CODEX_INSTALL_ALLOW_RUNNING=1 \
-  "${REFERENCE_BUILDER_DIR}/install.sh" "${builder_args[@]}"
+    CODEX_INSTALL_DIR="$STAGE_APP_ROOT" \
+    CODEX_INSTALL_ALLOW_RUNNING=1 \
+    "${REFERENCE_BUILDER_DIR}/install.sh" "${builder_args[@]}"
 }
 
 verify_build_manifest() {
@@ -256,7 +255,7 @@ verify_build_manifest() {
   }
 
   CODEX_UBUNTU_REQUIRED_DMG_SHA256="$REQUIRED_DMG_SHA256" \
-  "$VERIFY_SCRIPT" "$BUILD_MANIFEST_PATH" "$POLICY_PATH"
+    "$VERIFY_SCRIPT" "$BUILD_MANIFEST_PATH" "$POLICY_PATH"
 }
 
 main() {

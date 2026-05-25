@@ -106,9 +106,9 @@ test_wrapper_reads_allowlisted_config_file() {
   chmod 644 "$config_file"
 
   HOME="$home_dir" \
-  XDG_CONFIG_HOME="$config_home" \
-  XDG_CACHE_HOME="$cache_home" \
-  "$WRAPPER"
+    XDG_CONFIG_HOME="$config_home" \
+    XDG_CACHE_HOME="$cache_home" \
+    "$WRAPPER"
 
   wait_for_file "${home_dir}/electron-app-root.txt" "wrapper did not launch fake start.sh"
   assert_contains "${home_dir}/electron-app-root.txt" "$app_root"
@@ -129,7 +129,7 @@ test_wrapper_does_not_execute_shell_config() {
   marker_file="${home_dir}/config-should-not-run"
 
   mkdir -p "$home_dir" "${config_home}/codex-ubuntu" "$cache_home"
-  printf 'CODEX_UBUNTU_ELECTRON_APP_ROOT=$(touch %q)\n' "$marker_file" >"$config_file"
+  printf "CODEX_UBUNTU_ELECTRON_APP_ROOT=\$(touch %q)\n" "$marker_file" >"$config_file"
 
   if HOME="$home_dir" \
     XDG_CONFIG_HOME="$config_home" \

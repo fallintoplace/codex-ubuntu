@@ -1,9 +1,20 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: check require-desktop-tools validate-desktop test package-smoke electron-package-smoke package-install-smoke install-local install-electron-local import-electron-payload build-deb build-electron-deb build-electron-local bootstrap-electron-local
+LINT_SHELL_FILES := \
+	launcher/codex-ubuntu \
+	electron/codex-desktop \
+	scripts/*.sh \
+	tests/*.sh \
+	tests/fixtures/*.sh
+
+.PHONY: check lint fmt require-desktop-tools require-lint-tools validate-desktop test package-smoke electron-package-smoke package-install-smoke install-local install-electron-local import-electron-payload build-deb build-electron-deb build-electron-local bootstrap-electron-local
 
 require-desktop-tools:
 	command -v desktop-file-validate >/dev/null 2>&1 || { printf 'desktop-file-validate is required for validation. Install desktop-file-utils.\n' >&2; exit 1; }
+
+require-lint-tools:
+	command -v shellcheck >/dev/null 2>&1 || { printf 'shellcheck is required for linting.\n' >&2; exit 1; }
+	command -v shfmt >/dev/null 2>&1 || { printf 'shfmt is required for formatting checks.\n' >&2; exit 1; }
 
 check: validate-desktop
 	bash -n electron/codex-desktop
@@ -26,6 +37,13 @@ check: validate-desktop
 	bash -n tests/electron_wrapper_smoke.sh
 	bash -n tests/install_electron_local_smoke.sh
 	bash -n tests/launcher_smoke.sh
+
+lint: require-lint-tools
+	shellcheck $(LINT_SHELL_FILES)
+	shfmt -d -i 2 -ci $(LINT_SHELL_FILES)
+
+fmt: require-lint-tools
+	shfmt -w -i 2 -ci $(LINT_SHELL_FILES)
 
 validate-desktop: require-desktop-tools
 	@tmpfile="$$(mktemp --suffix=.desktop)"; \

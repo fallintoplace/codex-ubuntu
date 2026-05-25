@@ -67,12 +67,12 @@ EOF
   chmod 755 "$install_script"
 
   TEST_BUILD_LOG="$build_log" \
-  TEST_INSTALL_LOG="$install_log" \
-  XDG_STATE_HOME="${tmpdir}/state" \
-  XDG_CACHE_HOME="${tmpdir}/cache" \
-  CODEX_UBUNTU_DESKTOP_BOOTSTRAP_BUILD_SCRIPT="$build_script" \
-  CODEX_UBUNTU_DESKTOP_BOOTSTRAP_INSTALL_SCRIPT="$install_script" \
-  "$BOOTSTRAP_SCRIPT" --download-upstream >"$output_log"
+    TEST_INSTALL_LOG="$install_log" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    CODEX_UBUNTU_DESKTOP_BOOTSTRAP_BUILD_SCRIPT="$build_script" \
+    CODEX_UBUNTU_DESKTOP_BOOTSTRAP_INSTALL_SCRIPT="$install_script" \
+    "$BOOTSTRAP_SCRIPT" --download-upstream >"$output_log"
 
   assert_contains "$build_log" "IMPORT_AFTER_BUILD=0"
   assert_contains "$build_log" "SUPPRESS_NEXT_STEPS=1"

@@ -92,9 +92,9 @@ test_fresh_local_electron_install() {
   create_fake_app_root "$source_root"
 
   HOME="$home_dir" \
-  XDG_DATA_HOME="${tmpdir}/data" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  "$INSTALL_SCRIPT" "$source_root"
+    XDG_DATA_HOME="${tmpdir}/data" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    "$INSTALL_SCRIPT" "$source_root"
 
   active_wrapper="${home_dir}/.local/bin/codex-desktop-linux-heavy"
   rollback_wrapper="${home_dir}/.local/bin/codex-desktop-rollback"
@@ -142,9 +142,9 @@ EOF
   chmod 755 "$active_wrapper"
 
   HOME="$home_dir" \
-  XDG_DATA_HOME="${tmpdir}/data" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  "$INSTALL_SCRIPT" "$source_root"
+    XDG_DATA_HOME="${tmpdir}/data" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    "$INSTALL_SCRIPT" "$source_root"
 
   assert_file "$legacy_wrapper"
   assert_file "$legacy_desktop"
@@ -161,10 +161,10 @@ test_system_package_mode_only_updates_local_payload_state() {
   create_fake_app_root "$source_root"
 
   HOME="$home_dir" \
-  XDG_DATA_HOME="${tmpdir}/data" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  CODEX_UBUNTU_ELECTRON_INSTALL_MODE=system-package \
-  "$INSTALL_SCRIPT" "$source_root"
+    XDG_DATA_HOME="${tmpdir}/data" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    CODEX_UBUNTU_ELECTRON_INSTALL_MODE=system-package \
+    "$INSTALL_SCRIPT" "$source_root"
 
   config_file="${tmpdir}/config/codex-ubuntu/electron.env"
   target_root="${home_dir}/.local/opt/codex-ubuntu/current/codex-app"
@@ -194,14 +194,14 @@ test_atomic_release_install_and_rollback() {
   create_fake_app_root "$second_root" "release-two" "second icon"
 
   HOME="$home_dir" \
-  XDG_DATA_HOME="${tmpdir}/data" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  "$INSTALL_SCRIPT" "$first_root"
+    XDG_DATA_HOME="${tmpdir}/data" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    "$INSTALL_SCRIPT" "$first_root"
 
   HOME="$home_dir" \
-  XDG_DATA_HOME="${tmpdir}/data" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  "$INSTALL_SCRIPT" "$second_root"
+    XDG_DATA_HOME="${tmpdir}/data" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    "$INSTALL_SCRIPT" "$second_root"
 
   current_link="${home_dir}/.local/opt/codex-ubuntu/current"
   previous_link="${home_dir}/.local/opt/codex-ubuntu/previous"
@@ -215,9 +215,9 @@ test_atomic_release_install_and_rollback() {
   assert_contains "$icon_file" "second icon"
 
   HOME="$home_dir" \
-  XDG_DATA_HOME="${tmpdir}/data" \
-  XDG_CONFIG_HOME="${tmpdir}/config" \
-  "$rollback_wrapper"
+    XDG_DATA_HOME="${tmpdir}/data" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    "$rollback_wrapper"
 
   assert_symlink_target_contains "$current_link" "release-one"
   assert_symlink_target_contains "$previous_link" "release-two"

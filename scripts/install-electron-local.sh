@@ -57,7 +57,7 @@ parse_args() {
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --help|-h)
+      --help | -h)
         usage
         exit 0
         ;;
@@ -84,7 +84,7 @@ parse_args() {
 
 validate_install_mode() {
   case "$INSTALL_MODE" in
-    local-launcher|system-package)
+    local-launcher | system-package)
       ;;
     *)
       printf 'Unsupported CODEX_UBUNTU_ELECTRON_INSTALL_MODE: %s\n' "$INSTALL_MODE" >&2
@@ -195,8 +195,7 @@ resolve_source_app_root() {
   for candidate in \
     "$DEFAULT_STAGE_APP_ROOT" \
     "$(detect_config_value "$LEGACY_WRAPPER" app_root 2>/dev/null || true)" \
-    "${HOME}/codex-desktop-linux/codex-app"
-  do
+    "${HOME}/codex-desktop-linux/codex-app"; do
     [ -n "$candidate" ] || continue
     if [ -x "${candidate}/start.sh" ]; then
       printf '%s\n' "$candidate"
@@ -292,8 +291,7 @@ validate_app_root() {
     "${app_root}/version" \
     "${app_root}/resources/app.asar" \
     "${app_root}/resources/codex-linux-build-info.json" \
-    "${app_root}/.codex-linux/codex-desktop.png"
-  do
+    "${app_root}/.codex-linux/codex-desktop.png"; do
     [ -e "$required_path" ] || {
       printf 'Expected app root file is missing: %s\n' "$required_path" >&2
       exit 1
