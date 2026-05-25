@@ -84,8 +84,7 @@ parse_args() {
 
 validate_install_mode() {
   case "$INSTALL_MODE" in
-    local-launcher | system-package)
-      ;;
+    local-launcher | system-package) ;;
     *)
       printf 'Unsupported CODEX_UBUNTU_ELECTRON_INSTALL_MODE: %s\n' "$INSTALL_MODE" >&2
       exit 1
