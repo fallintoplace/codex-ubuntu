@@ -66,6 +66,7 @@ Status:
 
 - repo-owned local launcher wrapper is implemented
 - same-identity local dogfooding with rollback is implemented
+- staged local Electron build bridge is implemented
 - minimum payload intake is implemented
 - full payload intake is still pending
 

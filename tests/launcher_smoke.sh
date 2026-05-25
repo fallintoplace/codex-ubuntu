@@ -9,6 +9,7 @@ FAKE_BROWSER="${REPO_DIR}/tests/fixtures/fake_browser.sh"
 FAKE_HEALTH_SERVER="${REPO_DIR}/tests/fixtures/fake_unverified_health_server.py"
 FAKE_HANGING_HEALTH_SERVER="${REPO_DIR}/tests/fixtures/fake_hanging_health_server.py"
 FAKE_XDOTOOL_DIR="${REPO_DIR}/tests/fixtures"
+PATH="${FAKE_XDOTOOL_DIR}:$PATH"
 TEST_TMPDIRS=()
 TEST_PIDS=()
 TEST_TIMEOUT_SECONDS="${CODEX_UBUNTU_TEST_TIMEOUT_SECONDS:-20}"

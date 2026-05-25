@@ -65,6 +65,8 @@ resolve_app_root() {
   fi
 
   for candidate in \
+    "${HOME}/.local/opt/codex-ubuntu/current/codex-app" \
+    "${HOME}/.local/opt/codex-ubuntu/codex-app" \
     "${HOME}/codex-desktop-linux/codex-app" \
     "${HOME}/.local/opt/codex-desktop-linux/codex-app" \
     "${HOME}/.local/opt/codex-desktop-linux/current/codex-app"

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Codex Desktop
+Comment=Launch the Electron desktop build for Ubuntu
+Exec=__EXEC__ %u
+Terminal=false
+Categories=Development;IDE;
+StartupNotify=true
+StartupWMClass=codex-desktop
+X-GNOME-WMClass=codex-desktop
+Icon=__ICON__
+Keywords=Desktop;Development;AI;Assistant;

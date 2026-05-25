@@ -31,6 +31,7 @@ This repository now takes the harder but more honest path:
 The current repository is not just a design memo. It already ships:
 
 - a repo-owned local Electron launcher wrapper for dogfooding
+- a staged local Electron build bridge for fresh-machine installs
 - a minimum Electron payload intake workflow
 - a strict browser fallback launcher
 - XDG config, cache, and state handling
@@ -48,6 +49,7 @@ The current repository is not just a design memo. It already ships:
 | --- | --- |
 | Browser fallback launcher | Working preview |
 | Repo-owned Electron dogfood wrapper | Working local-only |
+| Staged local Electron build bridge | Working preview |
 | Minimum payload intake | Working preview |
 | Self-contained Electron desktop package | Not yet |
 | Updater | Not yet |
@@ -95,7 +97,8 @@ See [providers/contract.md](providers/contract.md), [providers/browser-shell.md]
 
 | Area | Current | Notes |
 | --- | --- | --- |
-| Repo-owned Electron launcher | Partial | Local dogfood wrapper around the current working desktop payload |
+| Repo-owned Electron launcher | Yes | Local wrapper now targets either a built local app root or a configured existing one |
+| Staged local Electron build bridge | Yes | Builds a local app root through a pinned bridge builder and repo-managed staging |
 | Minimum payload intake | Yes | Imports `app.asar`, `start.sh`, version, build metadata, and icon into an ignored local vendor area |
 | Browser fallback launcher | Yes | Strict launcher and recovery path |
 | Electron-first repo structure | Yes | Docs and repo layout now point at the desktop path |
@@ -116,7 +119,7 @@ See [providers/contract.md](providers/contract.md), [providers/browser-shell.md]
 | Path | Who it is for | Works from this repo alone? | Current reality |
 | --- | --- | --- | --- |
 | Browser fallback | People who want the current fully repo-owned path | Yes | Lowest-fidelity UX, but easiest to run from this repo today |
-| Electron developer path | People who want the real desktop feel | No | Best UX, but currently requires an existing local desktop payload root |
+| Electron developer path | People who want the real desktop feel | Yes | Best UX, with a staged local build bridge and local install flow |
 
 ### What you need locally
 
@@ -128,17 +131,21 @@ Browser fallback:
 
 Electron developer path:
 
-- a local desktop payload root containing at least:
-  - `start.sh`
-  - `version`
-  - `resources/app.asar`
-  - `resources/codex-linux-build-info.json`
-  - `.codex-linux/codex-desktop.png`
-- whatever runtime expectations that payload already has
+- `git`, `python3`, `curl`, `unzip`, `tar`, `make`, and `g++`
+- `7zz` or a recent `7z`
+- enough disk space for a staged desktop build
+
+The staged Electron build bridge bootstraps a pinned Linux build backend and writes a local app root under:
+
+```text
+dist/electron-build/current/codex-app
+```
 
 By default the repo-owned Electron wrapper looks for:
 
 ```text
+$HOME/.local/opt/codex-ubuntu/current/codex-app
+$HOME/.local/opt/codex-ubuntu/codex-app
 $HOME/codex-desktop-linux/codex-app
 ```
 
@@ -158,6 +165,24 @@ make install-electron-local
 
 That swaps the active local `Codex Desktop` wrapper to the repo-owned Electron launcher and preserves a `Codex Desktop (Legacy)` rollback entry.
 
+### Electron local build quick start
+
+If you want a fresh-machine local Electron build without depending on your old hand-installed payload:
+
+```bash
+make build-electron-local
+make install-electron-local
+```
+
+If you already have a local `Codex.dmg`:
+
+```bash
+make build-electron-local SOURCE_DMG=/path/to/Codex.dmg
+make install-electron-local
+```
+
+This path builds a staged local app root through a pinned bridge builder, then installs the repo-owned launcher against the copied local app root in `~/.local/opt/codex-ubuntu/current/codex-app`.
+
 ### Minimum payload intake
 
 If you want the repo to import the current local desktop payload slice for patch planning and provenance:
@@ -175,16 +200,21 @@ That writes:
 
 For a fresh machine or another developer, the current Electron path is:
 
-1. build or obtain a local desktop payload root
-2. point the repo at it if it is not at `$HOME/codex-desktop-linux/codex-app`
-3. import the minimum payload slice for provenance and patch planning
-4. install the repo-owned Electron launcher
+1. build a staged local app root
+2. install the repo-owned Electron launcher against the copied local app root
+3. optionally import the minimum payload slice for provenance and patch planning
 
 Example:
 
 ```bash
-make import-electron-payload SOURCE_ROOT=/path/to/codex-app
+make build-electron-local
 make install-electron-local
+```
+
+If you want to reuse an already-built app root instead:
+
+```bash
+make install-electron-local SOURCE_APP_ROOT=/path/to/codex-app
 ```
 
 ### Fallback launcher quick start
@@ -221,14 +251,14 @@ Or open `Codex Ubuntu (Unofficial)` from the Ubuntu app grid.
 Today this repository does **not** provide:
 
 - a vendored Electron payload in git
-- a one-command self-contained Electron desktop install for strangers
-- a direct upstream-DMG-to-local-payload build flow inside this repo
+- a fully in-repo Linux payload toolchain with no bridge builder
+- a packaged `.deb` that installs the Electron desktop path directly
 
 So the current Electron story is:
 
-- this repo owns the launcher and intake workflow
-- you provide or build the local desktop payload root
-- the repo then launches and tracks that payload cleanly
+- this repo owns the launcher, install flow, and staging layout
+- the local Electron build currently bootstraps a pinned bridge builder
+- the repo then launches and tracks the copied local app root cleanly
 
 ## Architecture at a glance
 
