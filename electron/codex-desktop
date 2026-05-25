@@ -8,6 +8,7 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/codex-ubuntu"
 CONFIG_FILE="${CONFIG_DIR}/electron.env"
 LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/codex-ubuntu"
 LOG_FILE="${LOG_DIR}/electron-wrapper.log"
+DISABLE_NOTIFICATIONS="${CODEX_UBUNTU_DISABLE_NOTIFICATIONS:-0}"
 
 mkdir -p "$LOG_DIR"
 chmod 700 "$LOG_DIR" >/dev/null 2>&1 || true
@@ -16,6 +17,18 @@ chmod 700 "$CONFIG_DIR" >/dev/null 2>&1 || true
 
 log() {
   printf '[%s] %s\n' "$(date -Is)" "$*" >>"$LOG_FILE"
+}
+
+notify_failure() {
+  local message="$1"
+  case "$DISABLE_NOTIFICATIONS" in
+    1|true|TRUE|yes|YES)
+      return 0
+      ;;
+  esac
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "$DISPLAY_NAME" "$message" || true
+  fi
 }
 
 load_config_file() {
@@ -139,6 +152,7 @@ resolve_node_bin_dir() {
 
 resolve_app_root() {
   local candidate=""
+  local bootstrap_hint="codex-desktop-bootstrap"
 
   if [ -n "${CODEX_UBUNTU_ELECTRON_APP_ROOT:-}" ]; then
     candidate="${CODEX_UBUNTU_ELECTRON_APP_ROOT}"
@@ -164,6 +178,10 @@ resolve_app_root() {
   done
 
   printf 'Could not find a usable Codex Desktop app root.\n' >&2
+  if command -v "$bootstrap_hint" >/dev/null 2>&1; then
+    notify_failure "Run ${bootstrap_hint} once to build the local desktop payload."
+    printf 'Run %s to build and install the local desktop payload.\n' "$bootstrap_hint" >&2
+  fi
   printf 'Set CODEX_UBUNTU_ELECTRON_APP_ROOT to a directory containing start.sh.\n' >&2
   exit 1
 }

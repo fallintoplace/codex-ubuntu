@@ -9,6 +9,7 @@ Current contents:
 - payload intake notes and import workflow
 - payload patch-layer placeholder
 - payload manifest docs
+- tracked build-verification policy
 
 Planned contents:
 

@@ -147,9 +147,40 @@ test_wrapper_does_not_execute_shell_config() {
   assert_contains "$stderr_file" "Invalid shell-like value for CODEX_UBUNTU_ELECTRON_APP_ROOT"
 }
 
+test_wrapper_points_to_bootstrap_when_no_app_root_exists() {
+  local tmpdir home_dir config_home cache_home stderr_file bootstrap_stub
+
+  tmpdir="$(mktemp -d)"
+  register_tmpdir "$tmpdir"
+  home_dir="${tmpdir}/home"
+  config_home="${tmpdir}/config"
+  cache_home="${tmpdir}/cache"
+  stderr_file="${tmpdir}/wrapper.err"
+  bootstrap_stub="${home_dir}/.local/bin/codex-desktop-bootstrap"
+
+  mkdir -p "$home_dir/.local/bin" "$config_home" "$cache_home"
+  cat >"$bootstrap_stub" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  chmod 755 "$bootstrap_stub"
+
+  if HOME="$home_dir" \
+    XDG_CONFIG_HOME="$config_home" \
+    XDG_CACHE_HOME="$cache_home" \
+    CODEX_UBUNTU_DISABLE_NOTIFICATIONS=1 \
+    "$WRAPPER" >/dev/null 2>"$stderr_file"; then
+    printf 'wrapper unexpectedly succeeded without an app root\n' >&2
+    exit 1
+  fi
+
+  assert_contains "$stderr_file" "Run codex-desktop-bootstrap to build and install the local desktop payload."
+}
+
 trap cleanup_test_artifacts EXIT
 
 test_wrapper_reads_allowlisted_config_file
 test_wrapper_does_not_execute_shell_config
+test_wrapper_points_to_bootstrap_when_no_app_root_exists
 
 printf '[INFO] electron wrapper smoke tests passed\n'

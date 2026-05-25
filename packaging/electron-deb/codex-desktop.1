@@ -1,0 +1,21 @@
+.TH codex-desktop 1 "May 2026" "codex-desktop 0.2.1" "User Commands"
+.SH NAME
+codex-desktop \- launch the Electron desktop path for Ubuntu
+.SH SYNOPSIS
+.B codex-desktop
+[\fIarguments\fR]
+.SH DESCRIPTION
+.B codex-desktop
+launches the Electron desktop path for Ubuntu using the locally installed app
+root for the current user.
+.PP
+If no local app root exists yet, run:
+.PP
+.B codex-desktop-bootstrap
+.SH FILES
+.TP
+.I ~/.config/codex-ubuntu/electron.env
+User-local Electron launcher configuration.
+.TP
+.I ~/.local/opt/codex-ubuntu/current/codex-app
+Default local desktop payload location.

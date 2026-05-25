@@ -38,7 +38,15 @@ jobs:
           sudo apt-get install -y desktop-file-utils lintian
       - name: Make scripts executable
         run: chmod +x launcher/codex-ubuntu scripts/*.sh tests/*.sh tests/fixtures/*
-      - name: Build Debian package
-        run: make build-deb
-      - name: Validate Debian package
-        run: make package-smoke
+      - name: Build Debian packages
+        run: |
+          make build-deb
+          make build-electron-deb
+      - name: Validate Debian packages
+        run: |
+          make package-smoke
+          make electron-package-smoke
+      - name: Install and remove Debian packages
+        env:
+          CODEX_UBUNTU_PACKAGE_INSTALL_TEST: "1"
+        run: make package-install-smoke

@@ -1,0 +1,17 @@
+.TH codex-desktop-bootstrap 1 "May 2026" "codex-desktop 0.2.1" "User Commands"
+.SH NAME
+codex-desktop-bootstrap \- build and install the local Electron desktop payload
+.SH SYNOPSIS
+.B codex-desktop-bootstrap
+[\fIbuild-electron-local options\fR]
+[\fIpath/to/Codex.dmg\fR]
+.SH DESCRIPTION
+.B codex-desktop-bootstrap
+builds the local Electron desktop payload for the current user and installs it
+into the standard user-local app root used by
+.BR codex-desktop .
+.PP
+The package installs the launcher and bootstrap tooling, but not the upstream
+desktop payload itself.
+.PP
+Run this command as your desktop user, not as root.

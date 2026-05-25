@@ -32,6 +32,8 @@ The current repository is not just a design memo. It already ships:
 
 - a repo-owned local Electron launcher wrapper for dogfooding
 - a staged local Electron build bridge for fresh-machine installs
+- atomic local Electron installs with current/previous release rollback
+- tracked build policy and manifest verification for the Electron path
 - a minimum Electron payload intake workflow
 - a strict browser fallback launcher
 - XDG config, cache, and state handling
@@ -50,16 +52,26 @@ The current repository is not just a design memo. It already ships:
 | Browser fallback launcher | Working preview |
 | Repo-owned Electron dogfood wrapper | Working local-only |
 | Staged local Electron build bridge | Working preview |
+| Atomic local Electron rollback | Working preview |
+| Electron build policy verification | Working preview |
 | Minimum payload intake | Working preview |
+| Electron bootstrap package | Working preview |
 | Self-contained Electron desktop package | Not yet |
 | Updater | Not yet |
 | Stable v1 release | Not yet |
 
 ## Package reality today
 
-`make build-deb` currently builds the **browser fallback preview package**, not the Electron desktop app.
+`make build-deb` currently builds the **browser fallback preview package**.
 
-That means the `.deb` is useful as a preview/recovery install, but it is **not** yet the main Electron product this repository is aiming for.
+`make build-electron-deb` builds the **Electron-primary bootstrap package**.
+
+That means:
+
+- the fallback `.deb` is useful as a preview/recovery install
+- the Electron `.deb` installs the launcher and bootstrap tooling
+- neither package ships the upstream Electron payload itself yet
+- the Electron build path now verifies its manifest against a tracked policy
 
 ## What it is not claiming
 
@@ -105,6 +117,8 @@ See [providers/contract.md](providers/contract.md), [providers/browser-shell.md]
 | --- | --- | --- |
 | Repo-owned Electron launcher | Yes | Local wrapper now targets either a built local app root or a configured existing one |
 | Staged local Electron build bridge | Yes | Builds a local app root through a pinned bridge builder and repo-managed staging |
+| Atomic local Electron rollback | Yes | Local installs keep `current` and `previous` releases plus a rollback command |
+| Electron build policy verification | Yes | The staged build manifest must match the tracked builder policy before the build is accepted |
 | Minimum payload intake | Yes | Imports `app.asar`, `start.sh`, version, build metadata, and icon into an ignored local vendor area |
 | Browser fallback launcher | Yes | Strict launcher and recovery path |
 | Electron-first repo structure | Yes | Docs and repo layout now point at the desktop path |
@@ -113,6 +127,7 @@ See [providers/contract.md](providers/contract.md), [providers/browser-shell.md]
 | Local install | Yes | `make install-local` installs the fallback preview utility |
 | Local Electron install | Yes | `make install-electron-local` swaps the active desktop launcher to repo code with rollback preserved |
 | Debian package build | Yes | Today this packages the fallback preview utility, not `Codex Desktop` |
+| Electron bootstrap package | Yes | `make build-electron-deb` packages the Electron launcher and bootstrap tooling |
 | CI | Yes | Syntax, smoke tests, packaging |
 | Desktop-payload provider | Not yet | Main implementation target |
 | App Server provider | Not yet | Optional future provider |
@@ -125,12 +140,14 @@ See [providers/contract.md](providers/contract.md), [providers/browser-shell.md]
 | Path | Who it is for | Works from this repo alone? | Current reality |
 | --- | --- | --- | --- |
 | Browser fallback preview | People who want the current fully repo-owned recovery path | Yes | Lowest-fidelity UX, but easiest to run from this repo today |
-| Electron developer path | People who want the real desktop feel | Yes | Best UX, with a staged local build bridge and local install flow |
+| Electron bootstrap package | People who want the real desktop feel from a package install | Yes | Best UX path the repo can package today, without vendoring the payload |
+| Electron developer path | People who want to build and install directly from the repo checkout | Yes | Same Electron-first path, but driven from the working tree |
 
 Important:
 
-- `make build-deb` packages the browser fallback preview path today
-- `Codex Desktop` is currently built and installed through the local Electron build/install flow, not through the `.deb`
+- `make build-deb` packages the browser fallback preview path
+- `make build-electron-deb` packages the Electron launcher/bootstrap path
+- the Electron `.deb` still expects the user to build/install the payload locally after install
 
 ### What you need locally
 
@@ -176,6 +193,32 @@ make install-electron-local
 
 That swaps the active local `Codex Desktop` wrapper to the repo-owned Electron launcher and preserves a `Codex Desktop (Legacy)` rollback entry.
 
+If a new local payload install goes bad later:
+
+```bash
+codex-desktop-rollback
+```
+
+### Electron bootstrap package quick start
+
+If you want the packageable Electron-first path today:
+
+```bash
+make build-electron-deb
+sudo dpkg -i dist/codex-desktop_$(cat VERSION)_all.deb
+codex-desktop-bootstrap
+```
+
+That installs:
+
+- `codex-desktop`
+- `codex-desktop-bootstrap`
+- `codex-desktop-rollback`
+- the Electron launcher and helper scripts under `/usr/lib/codex-desktop`
+
+The package does not ship the payload itself. `codex-desktop-bootstrap` builds
+and installs the local payload for the current user.
+
 ### Electron local build quick start
 
 If you want a fresh-machine local Electron build without depending on your old hand-installed payload:
@@ -194,6 +237,14 @@ make install-electron-local
 
 This path builds a staged local app root through a pinned bridge builder, then installs the repo-owned launcher against the copied local app root in `~/.local/opt/codex-ubuntu/current/codex-app`.
 
+If you want to require a specific SHA-256 digest for a provided local DMG:
+
+```bash
+make build-electron-local \
+  SOURCE_DMG=/path/to/Codex.dmg \
+  CODEX_UBUNTU_REQUIRED_DMG_SHA256=<sha256>
+```
+
 ### Minimum payload intake
 
 If you want the repo to import the current local desktop payload slice for patch planning and provenance:
@@ -206,6 +257,11 @@ That writes:
 
 - `electron/vendor/current/`
 - `electron/manifest/current.local.json`
+
+The tracked builder policy lives at:
+
+- `electron/manifest/policy.json`
+- `electron/manifest/policy.example.json`
 
 ### Electron developer install
 

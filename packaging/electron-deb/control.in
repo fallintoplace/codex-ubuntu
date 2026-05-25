@@ -1,0 +1,14 @@
+Package: codex-desktop
+Version: __VERSION__
+Section: devel
+Priority: optional
+Architecture: all
+Maintainer: Minh Vu <vuhoangminh97@gmail.com>
+Depends: curl, g++, git, make, python3, tar, unzip, xdg-utils
+Recommends: 7zip | p7zip-full, desktop-file-utils, hicolor-icon-theme, libnotify-bin
+Description: Electron desktop bootstrap package for Ubuntu
+ This package installs the Electron-first desktop launcher and local build
+ bootstrap tooling for Ubuntu.
+ It does not ship the upstream desktop payload inside the package.
+ Run codex-desktop-bootstrap after install to build and install the local
+ desktop payload for the current user.

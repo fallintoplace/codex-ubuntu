@@ -5,6 +5,18 @@ Payload provenance and intake metadata live here.
 ## Tracked docs
 
 - this README
+- `policy.json`
+- `policy.example.json`
+
+`policy.json` is the tracked build-verification policy used by the staged
+Electron build flow.
+
+It currently defines:
+
+- the expected bridge-builder repository and pinned ref
+- the allowed bridge modes
+- required staged output files
+- an optional fail-closed source DMG checksum slot
 
 ## Local generated files
 

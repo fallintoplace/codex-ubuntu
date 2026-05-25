@@ -6,6 +6,7 @@ REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 DEFAULT_REFERENCE_URL="https://github.com/ilysenko/codex-desktop-linux.git"
 DEFAULT_REFERENCE_REF="19d3ca11ac74916ac6df068fce85abfd6f20069c"
+DEFAULT_POLICY_PATH="${REPO_DIR}/electron/manifest/policy.json"
 REFERENCE_BUILDER_DIR="${CODEX_UBUNTU_REFERENCE_BUILDER_DIR:-${REPO_DIR}/upstream/work/reference-builder}"
 REFERENCE_BUILDER_URL="${CODEX_UBUNTU_REFERENCE_BUILDER_URL:-$DEFAULT_REFERENCE_URL}"
 REFERENCE_BUILDER_REF="${CODEX_UBUNTU_REFERENCE_BUILDER_REF:-$DEFAULT_REFERENCE_REF}"
@@ -13,6 +14,10 @@ STAGE_ROOT="${CODEX_UBUNTU_ELECTRON_BUILD_ROOT:-${REPO_DIR}/dist/electron-build/
 STAGE_APP_ROOT="${CODEX_UBUNTU_ELECTRON_BUILD_APP_ROOT:-${STAGE_ROOT}/codex-app}"
 BUILD_MANIFEST_PATH="${STAGE_ROOT}/builder-source.json"
 IMPORT_AFTER_BUILD="${CODEX_UBUNTU_IMPORT_AFTER_BUILD:-1}"
+SUPPRESS_NEXT_STEPS="${CODEX_UBUNTU_SUPPRESS_BUILD_NEXT_STEPS:-0}"
+VERIFY_SCRIPT="${CODEX_UBUNTU_VERIFY_ELECTRON_BUILD_SCRIPT:-${REPO_DIR}/scripts/verify-electron-build-manifest.sh}"
+POLICY_PATH="${CODEX_UBUNTU_ELECTRON_POLICY_PATH:-$DEFAULT_POLICY_PATH}"
+REQUIRED_DMG_SHA256="${CODEX_UBUNTU_REQUIRED_DMG_SHA256:-}"
 
 SOURCE_DMG_PATH=""
 FRESH_BUILD=0
@@ -32,6 +37,9 @@ Build a self-contained local Electron app root in a repo-managed staging area.
 Options:
   --download-upstream   Download the upstream DMG if no local DMG path is provided
   --fresh               Rebuild from a clean staging area and ask the bridge builder for a fresh install
+  --policy PATH         Verify the build manifest against a specific policy file
+  --require-dmg-sha256 HASH
+                        Require a specific SHA-256 digest for a provided source DMG
   -h, --help            Show this help message and exit
 
 Environment:
@@ -41,6 +49,8 @@ Environment:
   CODEX_UBUNTU_ELECTRON_BUILD_ROOT     Stage root (default: dist/electron-build/current)
   CODEX_UBUNTU_ELECTRON_BUILD_APP_ROOT Stage app root (default: <stage>/codex-app)
   CODEX_UBUNTU_IMPORT_AFTER_BUILD      Import the minimum payload slice after build (default: 1)
+  CODEX_UBUNTU_ELECTRON_POLICY_PATH    Policy file used for build verification
+  CODEX_UBUNTU_REQUIRED_DMG_SHA256     Optional fail-closed digest for a provided source DMG
 
 If neither a DMG path nor --download-upstream is provided, the bridge builder will
 reuse its cached upstream DMG if present and otherwise download a fresh copy.
@@ -62,6 +72,22 @@ parse_args() {
         ;;
       --fresh)
         FRESH_BUILD=1
+        ;;
+      --policy)
+        [ "$#" -ge 2 ] || {
+          printf '--policy requires a path.\n' >&2
+          exit 1
+        }
+        POLICY_PATH="$2"
+        shift
+        ;;
+      --require-dmg-sha256)
+        [ "$#" -ge 2 ] || {
+          printf '--require-dmg-sha256 requires a SHA-256 digest.\n' >&2
+          exit 1
+        }
+        REQUIRED_DMG_SHA256="$2"
+        shift
         ;;
       -h|--help)
         usage
@@ -160,6 +186,7 @@ write_build_manifest() {
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import pathlib
 import sys
@@ -187,6 +214,11 @@ payload = {
 
 if source_dmg:
     payload["sourceDmg"] = str(pathlib.Path(source_dmg).resolve())
+    digest = hashlib.sha256()
+    with pathlib.Path(source_dmg).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    payload["sourceDmgSha256"] = digest.hexdigest()
 
 manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -217,6 +249,16 @@ run_reference_builder() {
   "${REFERENCE_BUILDER_DIR}/install.sh" "${builder_args[@]}"
 }
 
+verify_build_manifest() {
+  [ -x "$VERIFY_SCRIPT" ] || {
+    printf 'Missing build verification helper: %s\n' "$VERIFY_SCRIPT" >&2
+    exit 1
+  }
+
+  CODEX_UBUNTU_REQUIRED_DMG_SHA256="$REQUIRED_DMG_SHA256" \
+  "$VERIFY_SCRIPT" "$BUILD_MANIFEST_PATH" "$POLICY_PATH"
+}
+
 main() {
   parse_args "$@"
   require_command python3
@@ -226,6 +268,7 @@ main() {
   run_reference_builder
   verify_stage_output
   write_build_manifest
+  verify_build_manifest
 
   if [ "$IMPORT_AFTER_BUILD" = "1" ]; then
     "${REPO_DIR}/scripts/import-electron-payload.sh" "$STAGE_APP_ROOT"
@@ -233,9 +276,11 @@ main() {
 
   log "Built staged Electron app root at ${STAGE_APP_ROOT}"
   log "Wrote build manifest ${BUILD_MANIFEST_PATH}"
-  printf '\nNext steps:\n'
-  printf '  1. make install-electron-local SOURCE_APP_ROOT=%q\n' "$STAGE_APP_ROOT"
-  printf '  2. Launch Codex Desktop from the app grid\n'
+  if [ "$SUPPRESS_NEXT_STEPS" != "1" ]; then
+    printf '\nNext steps:\n'
+    printf '  1. make install-electron-local SOURCE_APP_ROOT=%q\n' "$STAGE_APP_ROOT"
+    printf '  2. Launch Codex Desktop from the app grid\n'
+  fi
 }
 
 main "$@"

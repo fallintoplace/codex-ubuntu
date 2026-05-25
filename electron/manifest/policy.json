@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "expectedReferenceBuilder": {
+    "url": "https://github.com/ilysenko/codex-desktop-linux.git",
+    "ref": "19d3ca11ac74916ac6df068fce85abfd6f20069c",
+    "requireCommitMatchRefWhenRefIsCommit": true
+  },
+  "allowedBridgeModes": [
+    "provided-dmg",
+    "downloaded-dmg",
+    "auto-download-or-cache"
+  ],
+  "requiredStageFiles": [
+    "start.sh",
+    "electron",
+    "resources/app.asar",
+    "resources/codex-linux-build-info.json",
+    ".codex-linux/codex-desktop.png"
+  ],
+  "requiredSourceDmgSha256": null
+}
