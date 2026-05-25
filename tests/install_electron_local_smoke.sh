@@ -34,6 +34,18 @@ assert_contains() {
   fi
 }
 
+assert_file_mode() {
+  local expected="$1"
+  local path="$2"
+  local actual=""
+
+  actual="$(stat -c '%a' "$path")"
+  if [ "$expected" != "$actual" ]; then
+    printf 'expected %s to have mode %s, got %s\n' "$path" "$expected" "$actual" >&2
+    exit 1
+  fi
+}
+
 create_fake_app_root() {
   local root="$1"
   mkdir -p "$root/.codex-linux" "$root/resources"
@@ -49,7 +61,7 @@ EOF
 }
 
 test_fresh_local_electron_install() {
-  local tmpdir home_dir source_root active_wrapper primary_desktop config_file target_root icon_file
+  local tmpdir home_dir source_root active_wrapper primary_desktop config_file target_root icon_file config_dir
 
   tmpdir="$(mktemp -d)"
   register_tmpdir "$tmpdir"
@@ -65,6 +77,7 @@ test_fresh_local_electron_install() {
   active_wrapper="${home_dir}/.local/bin/codex-desktop-linux-heavy"
   primary_desktop="${tmpdir}/data/applications/codex-desktop.desktop"
   config_file="${tmpdir}/config/codex-ubuntu/electron.env"
+  config_dir="$(dirname "$config_file")"
   target_root="${home_dir}/.local/opt/codex-ubuntu/current/codex-app"
   icon_file="${tmpdir}/data/icons/hicolor/256x256/apps/codex-desktop.png"
 
@@ -76,6 +89,8 @@ test_fresh_local_electron_install() {
   assert_contains "$active_wrapper" "${REPO_DIR}/electron/codex-desktop"
   assert_contains "$config_file" "$target_root"
   assert_contains "$primary_desktop" "Name=Codex Desktop"
+  assert_file_mode 700 "$config_dir"
+  assert_file_mode 600 "$config_file"
 }
 
 test_existing_wrapper_is_preserved_as_legacy() {

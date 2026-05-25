@@ -10,6 +10,7 @@ check: validate-desktop
 	bash -n scripts/install-electron-local.sh
 	bash -n scripts/install-local.sh
 	bash -n scripts/build-deb.sh
+	bash -n tests/electron_wrapper_smoke.sh
 	bash -n tests/install_electron_local_smoke.sh
 	bash -n tests/launcher_smoke.sh
 
@@ -28,6 +29,7 @@ validate-desktop:
 		rm -f "$$tmpfile"
 
 test: check
+	bash tests/electron_wrapper_smoke.sh
 	bash tests/install_electron_local_smoke.sh
 	bash tests/launcher_smoke.sh
 

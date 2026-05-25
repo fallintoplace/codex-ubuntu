@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ -n "${CODEX_UBUNTU_TEST_NOTIFY_LOG:-}" ]; then
+  printf '%s\n' "$*" >>"$CODEX_UBUNTU_TEST_NOTIFY_LOG"
+fi
+
+exit 0

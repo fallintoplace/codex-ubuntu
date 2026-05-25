@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -43,6 +44,7 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
 fi
 
 mkdir -p "$BIN_DIR" "$APP_DIR" "$ICON_DIR" "$CONFIG_DIR" "$(dirname "$TARGET_APP_ROOT")"
+chmod 700 "$CONFIG_DIR" >/dev/null 2>&1 || true
 
 detect_config_value() {
   local wrapper_path="$1"
@@ -137,13 +139,17 @@ copy_app_root_into_local_opt() {
 write_config_file() {
   local app_root="$1"
   local node_bin_dir="$2"
+  local temp_config="${CONFIG_FILE}.tmp.$$"
 
   {
     printf 'CODEX_UBUNTU_ELECTRON_APP_ROOT=%q\n' "$app_root"
     if [ -n "$node_bin_dir" ]; then
       printf 'CODEX_UBUNTU_NODE_BIN_DIR=%q\n' "$node_bin_dir"
     fi
-  } >"$CONFIG_FILE"
+  } >"$temp_config"
+
+  chmod 600 "$temp_config"
+  mv "$temp_config" "$CONFIG_FILE"
 }
 
 write_primary_wrapper() {

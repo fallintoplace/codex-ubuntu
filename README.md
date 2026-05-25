@@ -55,6 +55,12 @@ The current repository is not just a design memo. It already ships:
 | Updater | Not yet |
 | Stable v1 release | Not yet |
 
+## Package reality today
+
+`make build-deb` currently builds the **browser fallback utility package**, not the Electron desktop app.
+
+That means the `.deb` is useful as a preview/recovery install, but it is **not** yet the main Electron product this repository is aiming for.
+
 ## What it is not claiming
 
 This repository is not yet:
@@ -106,7 +112,7 @@ See [providers/contract.md](providers/contract.md), [providers/browser-shell.md]
 | XDG state layout | Yes | Config, cache, and state are separated |
 | Local install | Yes | `make install-local` installs the fallback utility |
 | Local Electron install | Yes | `make install-electron-local` swaps the active desktop launcher to repo code with rollback preserved |
-| Debian package build | Yes | Today this packages the fallback utility |
+| Debian package build | Yes | Today this packages the fallback utility, not `Codex Desktop` |
 | CI | Yes | Syntax, smoke tests, packaging |
 | Desktop-payload provider | Not yet | Main implementation target |
 | App Server provider | Not yet | Optional future provider |
@@ -120,6 +126,11 @@ See [providers/contract.md](providers/contract.md), [providers/browser-shell.md]
 | --- | --- | --- | --- |
 | Browser fallback | People who want the current fully repo-owned path | Yes | Lowest-fidelity UX, but easiest to run from this repo today |
 | Electron developer path | People who want the real desktop feel | Yes | Best UX, with a staged local build bridge and local install flow |
+
+Important:
+
+- `make build-deb` packages the browser fallback path today
+- `Codex Desktop` is currently built and installed through the local Electron build/install flow, not through the `.deb`
 
 ### What you need locally
 
@@ -225,6 +236,7 @@ Strict behavior:
 
 - invalid explicit runtime or browser overrides fail loudly
 - non-loopback bind values require `CODEX_UBUNTU_ALLOW_NON_LOOPBACK=1`
+- set `CODEX_UBUNTU_DISABLE_NOTIFICATIONS=1` if you want failure handling to stay terminal-only
 
 Install it locally:
 

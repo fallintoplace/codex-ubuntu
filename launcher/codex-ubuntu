@@ -4,12 +4,14 @@ umask 077
 
 APP_ID="codex-ubuntu"
 APP_NAME="Codex Ubuntu (Unofficial)"
-APP_VERSION="${CODEX_UBUNTU_VERSION:-0.2.0}"
+APP_VERSION="${CODEX_UBUNTU_VERSION:-0.2.1}"
 PROVIDER="${CODEX_UBUNTU_PROVIDER:-browser-shell}"
 WEB_BIND="${CODEX_UBUNTU_BIND:-127.0.0.1}"
 DEFAULT_WEB_PORT="${CODEX_UBUNTU_PORT:-8080}"
 ALLOW_NON_LOOPBACK="${CODEX_UBUNTU_ALLOW_NON_LOOPBACK:-0}"
 DEBUG_SHOW_TOKEN_URL="${CODEX_UBUNTU_DEBUG_SHOW_TOKEN_URL:-0}"
+LOCK_TIMEOUT_SECONDS="${CODEX_UBUNTU_LOCK_TIMEOUT_SECONDS:-15}"
+DISABLE_NOTIFICATIONS="${CODEX_UBUNTU_DISABLE_NOTIFICATIONS:-0}"
 
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/${APP_ID}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/${APP_ID}"
@@ -47,6 +49,11 @@ log() {
 
 notify_failure() {
   local message="$1"
+  case "$DISABLE_NOTIFICATIONS" in
+    1|true|TRUE|yes|YES)
+      return 0
+      ;;
+  esac
   if command -v notify-send >/dev/null 2>&1; then
     notify-send "$APP_NAME" "$message" || true
   fi
@@ -57,13 +64,21 @@ ensure_dirs() {
 }
 
 with_lock() {
+  local message=""
+
   ensure_dirs
   if command -v flock >/dev/null 2>&1; then
     if [ "$LOCK_HELD" = "1" ]; then
       return 0
     fi
     exec 9>"$LOCK_FILE"
-    flock 9
+    if ! flock -w "$LOCK_TIMEOUT_SECONDS" 9; then
+      exec 9>&- || true
+      message="Another ${APP_NAME} launcher operation is already in progress. Wait a moment or run codex-ubuntu --status."
+      log "Timed out waiting ${LOCK_TIMEOUT_SECONDS}s for launcher lock"
+      printf '%s\n' "$message" >&2
+      return 1
+    fi
     LOCK_HELD=1
   fi
 }
@@ -822,11 +837,9 @@ cleanup_stale_state() {
 }
 
 stop_server() {
-  local pid=""
-  local port=""
   local status=0
 
-  with_lock
+  with_lock || return $?
   stop_server_locked || status=$?
   release_lock
   return "$status"
@@ -862,7 +875,7 @@ ensure_server() {
   ENSURE_SERVER_ACTION=""
   validate_loopback_bind
   validate_port_number "$DEFAULT_WEB_PORT"
-  with_lock
+  with_lock || return $?
   ensure_dirs
   cleanup_stale_state
 

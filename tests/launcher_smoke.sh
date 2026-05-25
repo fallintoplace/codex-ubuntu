@@ -577,6 +577,66 @@ test_manual_open_fallback_redacts_token_url() {
   assert_not_contains "$stderr_file" "fake-token"
 }
 
+test_notifications_can_be_disabled() {
+  local tmpdir stderr_file notify_log requested_port
+
+  tmpdir="$(mktemp -d)"
+  register_tmpdir "$tmpdir"
+  stderr_file="${tmpdir}/notify.err"
+  notify_log="${tmpdir}/notify.log"
+  requested_port="$(pick_test_port)"
+
+  if PATH="${FAKE_XDOTOOL_DIR}:$PATH" \
+    CODEX_UBUNTU_APP_LINUX_CMD="$FAKE_RUNTIME" \
+    CODEX_UBUNTU_DISABLE_NOTIFICATIONS=1 \
+    CODEX_UBUNTU_TEST_NOTIFY_LOG="$notify_log" \
+    CODEX_UBUNTU_PORT="$requested_port" \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_launcher --browser >/dev/null 2>"$stderr_file"; then
+    printf 'notification-disable test unexpectedly succeeded without a browser or opener\n' >&2
+    exit 1
+  fi
+
+  [ ! -e "$notify_log" ] || {
+    printf 'notifications should have been disabled for this launcher invocation\n' >&2
+    exit 1
+  }
+  assert_contains "$stderr_file" "Manual URL: http://127.0.0.1:${requested_port}/__webstrapper/auth?token=%3Credacted%3E"
+}
+
+test_lock_timeout_fails_loudly() {
+  local tmpdir stderr_file lock_file lock_holder
+
+  tmpdir="$(mktemp -d)"
+  register_tmpdir "$tmpdir"
+  stderr_file="${tmpdir}/lock.err"
+  lock_file="${tmpdir}/state/codex-ubuntu/launcher.lock"
+  mkdir -p "$(dirname "$lock_file")"
+
+  (
+    exec 9>"$lock_file"
+    flock 9
+    sleep 5
+  ) &
+  lock_holder="$!"
+  register_pid "$lock_holder"
+  sleep 0.1
+
+  if CODEX_UBUNTU_LOCK_TIMEOUT_SECONDS=1 \
+    XDG_CONFIG_HOME="${tmpdir}/config" \
+    XDG_CACHE_HOME="${tmpdir}/cache" \
+    XDG_STATE_HOME="${tmpdir}/state" \
+    run_with_timeout 5 "$LAUNCHER" --stop >/dev/null 2>"$stderr_file"; then
+    printf 'lock timeout test unexpectedly succeeded\n' >&2
+    exit 1
+  fi
+
+  assert_contains "$stderr_file" "Another Codex Ubuntu (Unofficial) launcher operation is already in progress."
+  assert_contains "$stderr_file" "codex-ubuntu --status"
+}
+
 test_fresh_runtime_relaunches_even_if_window_exists() {
   local tmpdir browser_log requested_port_one requested_port_two
 
@@ -735,6 +795,7 @@ chmod +x \
   "$FAKE_HEALTH_SERVER" \
   "$FAKE_HANGING_HEALTH_SERVER" \
   "${FAKE_XDOTOOL_DIR}/gio" \
+  "${FAKE_XDOTOOL_DIR}/notify-send" \
   "${FAKE_XDOTOOL_DIR}/sensible-browser" \
   "${FAKE_XDOTOOL_DIR}/xdg-open" \
   "${FAKE_XDOTOOL_DIR}/xdotool"
@@ -752,6 +813,8 @@ test_invalid_browser_override_fails_loudly
 test_non_loopback_bind_requires_opt_in
 test_compatible_runtime_is_stoppable
 test_manual_open_fallback_redacts_token_url
+test_notifications_can_be_disabled
+test_lock_timeout_fails_loudly
 test_fresh_runtime_relaunches_even_if_window_exists
 test_retries_fingerprint_capture_after_health
 test_restart_keeps_outer_lock_during_verified_stop

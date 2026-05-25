@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 DISPLAY_NAME="Codex Desktop"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,14 +10,99 @@ LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/codex-ubuntu"
 LOG_FILE="${LOG_DIR}/electron-wrapper.log"
 
 mkdir -p "$LOG_DIR"
-
-if [ -f "$CONFIG_FILE" ]; then
-  # shellcheck disable=SC1090
-  . "$CONFIG_FILE"
-fi
+chmod 700 "$LOG_DIR" >/dev/null 2>&1 || true
+mkdir -p "$CONFIG_DIR"
+chmod 700 "$CONFIG_DIR" >/dev/null 2>&1 || true
 
 log() {
   printf '[%s] %s\n' "$(date -Is)" "$*" >>"$LOG_FILE"
+}
+
+load_config_file() {
+  local config_output=""
+  local line=""
+  local key=""
+  local value=""
+
+  [ -f "$CONFIG_FILE" ] || return 0
+
+  chmod 600 "$CONFIG_FILE" >/dev/null 2>&1 || true
+
+  if ! config_output="$(python3 - "$CONFIG_FILE" <<'PY'
+from pathlib import Path
+import shlex
+import sys
+
+config_path = Path(sys.argv[1])
+allowed_keys = {
+    "CODEX_UBUNTU_ELECTRON_APP_ROOT",
+    "CODEX_UBUNTU_NODE_BIN_DIR",
+}
+
+for line_number, raw_line in enumerate(
+    config_path.read_text(encoding="utf-8").splitlines(),
+    start=1,
+):
+    stripped = raw_line.strip()
+    if not stripped or stripped.startswith("#"):
+        continue
+    if "=" not in raw_line:
+        print(
+            f"Invalid config line in {config_path}:{line_number}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    key, raw_value = raw_line.split("=", 1)
+    key = key.strip()
+    if key not in allowed_keys:
+        print(
+            f"Unsupported key in {config_path}:{line_number}: {key}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    raw_value = raw_value.strip()
+    if not raw_value:
+        value = ""
+    else:
+        try:
+            tokens = shlex.split(raw_value, posix=True)
+        except ValueError as exc:
+            print(
+                f"Invalid shell-like value for {key} in {config_path}:{line_number}: {exc}",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
+
+        if len(tokens) != 1:
+            print(
+                f"Invalid shell-like value for {key} in {config_path}:{line_number}",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
+
+        value = tokens[0]
+
+    print(f"{key}={value}")
+PY
+)"; then
+    return 1
+  fi
+
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    case "$key" in
+      CODEX_UBUNTU_ELECTRON_APP_ROOT)
+        CODEX_UBUNTU_ELECTRON_APP_ROOT="$value"
+        ;;
+      CODEX_UBUNTU_NODE_BIN_DIR)
+        CODEX_UBUNTU_NODE_BIN_DIR="$value"
+        ;;
+    esac
+  done <<<"$config_output"
 }
 
 prepend_path_once() {
@@ -86,6 +172,7 @@ main() {
   local node_bin_dir=""
   local app_root=""
 
+  load_config_file
   prepend_path_once "${HOME}/.local/bin"
   if node_bin_dir="$(resolve_node_bin_dir)"; then
     prepend_path_once "$node_bin_dir"

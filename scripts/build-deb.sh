@@ -33,3 +33,4 @@ mkdir -p "$DIST_DIR"
 dpkg-deb --build "$PKGROOT" "$PACKAGE_PATH" >/dev/null
 
 printf 'Built %s\n' "$PACKAGE_PATH"
+printf 'Package note: this preview .deb installs the browser fallback utility, not the Electron desktop app.\n'
