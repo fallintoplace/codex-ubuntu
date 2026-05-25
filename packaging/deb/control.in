@@ -3,11 +3,11 @@ Version: __VERSION__
 Section: devel
 Priority: optional
 Architecture: all
-Maintainer: codex-ubuntu contributors
-Depends: bash, curl, python3, xdg-utils
+Maintainer: Minh Vu <vuhoangminh97@gmail.com>
+Depends: curl, python3, sensible-utils, xdg-utils
 Recommends: desktop-file-utils, hicolor-icon-theme, libnotify-bin
 Description: Browser fallback preview package for Ubuntu desktop integration
- Browser fallback preview package for Ubuntu desktop integration.
+ This package installs the browser fallback and recovery launcher for Ubuntu.
  It does not install the Electron desktop path.
  Today this package exists as the recovery and preview launcher while the
  Electron desktop path is still being productized.

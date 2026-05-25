@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 set -e
 
 update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
