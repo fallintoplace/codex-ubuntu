@@ -129,6 +129,25 @@ raise SystemExit(completed.returncode)
 PY
 }
 
+wait_for_background_result() {
+  local pid="$1"
+  local log_file="$2"
+  local label="$3"
+  local status=0
+
+  if wait "$pid"; then
+    return 0
+  fi
+
+  status="$?"
+  printf '%s exited with status %s\n' "$label" "$status" >&2
+  if [ -f "$log_file" ]; then
+    printf '%s output:\n' "$label" >&2
+    sed -n '1,200p' "$log_file" >&2 || true
+  fi
+  return "$status"
+}
+
 rewrite_json_field() {
   local path="$1"
   local field="$2"
@@ -621,12 +640,14 @@ test_retries_fingerprint_capture_after_health() {
 }
 
 test_restart_keeps_outer_lock_during_verified_stop() {
-  local tmpdir browser_log start_log requested_port token_file runtime_file launcher_one launcher_two status_one status_two
+  local tmpdir browser_log start_log requested_port token_file runtime_file launcher_one launcher_two launcher_one_log launcher_two_log status_one status_two
 
   tmpdir="$(mktemp -d)"
   register_tmpdir "$tmpdir"
   browser_log="${tmpdir}/browser.log"
   start_log="${tmpdir}/runtime-start.log"
+  launcher_one_log="${tmpdir}/launcher-one.log"
+  launcher_two_log="${tmpdir}/launcher-two.log"
   requested_port="$(pick_test_port)"
   token_file="${tmpdir}/state/codex-ubuntu/token"
   runtime_file="${token_file}.runtime"
@@ -651,7 +672,7 @@ test_restart_keeps_outer_lock_during_verified_stop() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --browser >/dev/null 2>&1 &
+  "$LAUNCHER" --browser >"$launcher_one_log" 2>&1 &
   launcher_one="$!"
 
   sleep 0.1
@@ -665,13 +686,20 @@ test_restart_keeps_outer_lock_during_verified_stop() {
   XDG_CONFIG_HOME="${tmpdir}/config" \
   XDG_CACHE_HOME="${tmpdir}/cache" \
   XDG_STATE_HOME="${tmpdir}/state" \
-  "$LAUNCHER" --browser >/dev/null 2>&1 &
+  "$LAUNCHER" --browser >"$launcher_two_log" 2>&1 &
   launcher_two="$!"
 
-  wait "$launcher_one"
-  status_one="$?"
-  wait "$launcher_two"
-  status_two="$?"
+  if wait_for_background_result "$launcher_one" "$launcher_one_log" "first launcher"; then
+    status_one=0
+  else
+    status_one="$?"
+  fi
+
+  if wait_for_background_result "$launcher_two" "$launcher_two_log" "second launcher"; then
+    status_two=0
+  else
+    status_two="$?"
+  fi
 
   assert_eq "0" "$status_one" "first launcher restart should succeed"
   assert_eq "0" "$status_two" "second launcher restart should succeed"
